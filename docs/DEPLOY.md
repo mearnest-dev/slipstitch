@@ -1,4 +1,4 @@
-# Deploying Stitchbook
+# Deploying Slipstitch
 
 ## Backend → Railway
 
@@ -18,9 +18,9 @@ Docker image, runs `prisma migrate deploy` on boot, and serves on `$PORT`.
 
 3. **Healthcheck** — `railway.json` points at `/health` (returns `{ ok: true }`).
 
-4. **Custom domain** — Railway → Settings → Networking → add `api.stitchbook.app`.
+4. **Custom domain** — Railway → Settings → Networking → add `api.slipstitch.app`.
    In **Cloudflare** add the CNAME Railway gives you (proxied is fine). Point the
-   iOS app at it via the `STITCHBOOK_API_BASE` scheme env var or the release default in `AppConfig.swift`.
+   iOS app at it via the `SLIPSTITCH_API_BASE` scheme env var or the release default in `AppConfig.swift`.
 
 ### Migrations
 - A migration is committed at `backend/prisma/migrations/`. `prisma migrate deploy`
@@ -29,20 +29,20 @@ Docker image, runs `prisma migrate deploy` on boot, and serves on `$PORT`.
 
 ## Media → Cloudflare R2
 
-1. Cloudflare dashboard → R2 → create bucket `stitchbook-media`.
+1. Cloudflare dashboard → R2 → create bucket `slipstitch-media`.
 2. R2 → Manage API Tokens → create an **S3 Auth** token (Object Read & Write) →
    gives Access Key ID + Secret. Endpoint is `https://<account_id>.r2.cloudflarestorage.com`.
 3. Serving images publicly: either enable the bucket's **public r2.dev URL** or
-   (recommended) attach a Cloudflare custom domain `media.stitchbook.app` to the
+   (recommended) attach a Cloudflare custom domain `media.slipstitch.app` to the
    bucket and set `R2_PUBLIC_BASE_URL` to it. CORS: allow `PUT` from the app origin
    for presigned uploads (R2 → Settings → CORS).
 
 ## iOS → TestFlight / App Store
 
-- `cd ios && xcodegen generate && open Stitchbook.xcodeproj`.
+- `cd ios && xcodegen generate && open Slipstitch.xcodeproj`.
 - Set `DEVELOPMENT_TEAM` in `project.yml` (or the target) to your Apple Team ID.
 - **Sign in with Apple**: enable the capability for the App ID in the Apple Developer
-  portal; the entitlement is already in `Stitchbook.entitlements`. Configure a
+  portal; the entitlement is already in `Slipstitch.entitlements`. Configure a
   Services ID whose identifier matches `APPLE_CLIENT_ID` on the backend.
 - App icon is wired (`Assets.xcassets/AppIcon`). Archive → distribute to TestFlight.
 

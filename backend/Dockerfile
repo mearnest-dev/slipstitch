@@ -1,4 +1,4 @@
-# Stitchbook API — multi-stage build for Railway.
+# Slipstitch API — multi-stage build for Railway.
 FROM node:22-slim AS base
 # OpenSSL is needed by Prisma's query engine.
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*

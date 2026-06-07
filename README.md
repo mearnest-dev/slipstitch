@@ -1,4 +1,4 @@
-# Stitchbook 🧶
+# Slipstitch 🧶
 
 A journaling app for crocheters. Track your projects row-by-row, photograph your
 progress, build collections, and discover what other makers are creating.
@@ -12,7 +12,7 @@ progress, build collections, and discover what other makers are creating.
 ## Layout
 
 ```
-stitchbook/
+slipstitch/
 ├── backend/            # Fastify + Prisma API
 │   ├── prisma/         # schema.prisma (the data contract)
 │   └── src/modules/    # auth, users, projects, collections, feed, media
@@ -27,7 +27,7 @@ Every workstream owns a disjoint set of files so merges stay conflict-free:
 - iOS `project.yml` globs feature folders, so new files never touch the project file.
 
 ```bash
-git worktree add ../stitchbook-worktrees/auth -b feat/backend-auth
+git worktree add ../slipstitch-worktrees/auth -b feat/backend-auth
 # ...build the module, commit, then merge back into main
 ```
 
@@ -46,5 +46,5 @@ iOS:
 ```bash
 cd ios
 xcodegen generate
-open Stitchbook.xcodeproj
+open Slipstitch.xcodeproj
 ```

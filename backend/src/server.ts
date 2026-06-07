@@ -34,7 +34,7 @@ export async function buildServer() {
     return reply.status(500).send({ error: { code: "internal_error", message: "Something went wrong" } });
   });
 
-  app.get("/health", async () => ({ ok: true, service: "stitchbook", ts: new Date().toISOString() }));
+  app.get("/health", async () => ({ ok: true, service: "slipstitch", ts: new Date().toISOString() }));
 
   // --- API v1 ---  (each module is owned by its own worktree)
   await app.register(
@@ -57,7 +57,7 @@ const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   buildServer()
     .then((app) => app.listen({ port: env.PORT, host: "0.0.0.0" }))
-    .then((addr) => console.log(`🧶 Stitchbook API listening at ${addr}`))
+    .then((addr) => console.log(`🧶 Slipstitch API listening at ${addr}`))
     .catch((err) => {
       console.error(err);
       process.exit(1);

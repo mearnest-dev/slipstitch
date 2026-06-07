@@ -3,7 +3,7 @@ import Security
 
 /// Minimal Keychain wrapper for persisting auth tokens securely.
 enum Keychain {
-    private static let service = "com.stitchbook.app.tokens"
+    private static let service = "com.slipstitch.app.tokens"
 
     static func set(_ value: String, for key: String) {
         let data = Data(value.utf8)

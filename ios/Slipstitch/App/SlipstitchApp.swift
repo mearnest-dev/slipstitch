@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct StitchbookApp: App {
+struct SlipstitchApp: App {
     @StateObject private var session = SessionStore()
 
     var body: some Scene {

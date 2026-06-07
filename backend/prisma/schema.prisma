@@ -1,4 +1,4 @@
-// Stitchbook data model — the source of truth for the API contract (docs/API.md).
+// Slipstitch data model — the source of truth for the API contract (docs/API.md).
 generator client {
   provider = "prisma-client-js"
 }

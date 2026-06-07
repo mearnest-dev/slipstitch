@@ -1,4 +1,4 @@
-# Stitchbook API contract (v1)
+# Slipstitch API contract (v1)
 
 Base URL: `/api/v1`. JSON in/out. Auth via `Authorization: Bearer <accessToken>`.
 This document is the **shared contract**: backend modules implement it, the iOS

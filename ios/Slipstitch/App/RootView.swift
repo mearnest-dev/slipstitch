@@ -41,11 +41,17 @@ struct StitchSplash: View {
     var body: some View {
         ZStack {
             StitchTheme.Color.brandGradient.ignoresSafeArea()
-            Image("WordmarkWhite")
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 240)
-                .accessibilityLabel("Stitchbook")
+            VStack(spacing: StitchTheme.Spacing.md) {
+                Image("Glyph")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 88, height: 88)
+                    .foregroundStyle(.white)
+                Text("Slipstitch")
+                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                    .foregroundStyle(.white)
+            }
         }
     }
 }

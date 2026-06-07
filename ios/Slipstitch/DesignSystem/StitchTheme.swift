@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Stitchbook's pastel design system. Soft, cozy, craft-forward.
+/// Slipstitch's pastel design system. Soft, cozy, craft-forward.
 /// All feature worktrees pull colors / fonts / spacing from here so the app
 /// stays visually consistent.
 enum StitchTheme {
 
     enum Color {
-        // Brand (Stitchbook purple) — the functional accent. Reserved for CTAs,
+        // Brand (Slipstitch purple) — the functional accent. Reserved for CTAs,
         // active states, and brand moments; soft pastels carry the rest.
         static let brand      = SwiftUI.Color(hex: 0x8A43FE) // primary
         static let brandDeep  = SwiftUI.Color(hex: 0x5701E4) // color-500, pressed / gradient base

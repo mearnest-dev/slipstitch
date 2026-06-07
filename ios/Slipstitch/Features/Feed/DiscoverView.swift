@@ -110,7 +110,7 @@ struct DiscoverView: View {
             }
             .buttonStyle(.plain)
         case let .pin(pin):
-            Link(destination: URL(string: pin.sourceUrl) ?? URL(string: "https://stitchbook.app")!) {
+            Link(destination: URL(string: pin.sourceUrl) ?? URL(string: "https://slipstitch.app")!) {
                 ExternalPinCardView(pin: pin, coverHeight: card.coverHeight)
             }
             .buttonStyle(.plain)

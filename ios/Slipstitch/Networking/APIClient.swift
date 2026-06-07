@@ -38,7 +38,7 @@ final class APIClient {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .custom { decoder in
             let s = try decoder.singleValueContainer().decode(String.self)
-            if let date = ISO8601DateFormatter.stitchbook.date(from: s) { return date }
+            if let date = ISO8601DateFormatter.slipstitch.date(from: s) { return date }
             let plain = ISO8601DateFormatter()
             if let date = plain.date(from: s) { return date }
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
@@ -133,7 +133,7 @@ struct AnyEncodable: Encodable {
 }
 
 extension ISO8601DateFormatter {
-    static let stitchbook: ISO8601DateFormatter = {
+    static let slipstitch: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f

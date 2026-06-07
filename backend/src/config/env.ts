@@ -9,15 +9,15 @@ const schema = z.object({
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL: z.string().default("30d"),
 
-  APPLE_CLIENT_ID: z.string().default("com.stitchbook.app"),
+  APPLE_CLIENT_ID: z.string().default("com.slipstitch.app"),
   APPLE_TEAM_ID: z.string().optional(),
 
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_BUCKET: z.string().default("stitchbook-media"),
+  R2_BUCKET: z.string().default("slipstitch-media"),
   R2_ENDPOINT: z.string().optional(),
-  R2_PUBLIC_BASE_URL: z.string().default("https://media.stitchbook.app"),
+  R2_PUBLIC_BASE_URL: z.string().default("https://media.slipstitch.app"),
 
   EXTERNAL_SEARCH_ENABLED: z
     .string()
