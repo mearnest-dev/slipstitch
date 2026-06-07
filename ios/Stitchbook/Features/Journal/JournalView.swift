@@ -58,7 +58,7 @@ struct JournalView: View {
             LazyVGrid(columns: columns, spacing: StitchTheme.Spacing.md) {
                 ForEach(model.projects) { project in
                     NavigationLink {
-                        ProjectDetailView(projectId: project.id) {
+                        JournalProjectDetailView(projectId: project.id) {
                             Task { await model.load() }
                         }
                     } label: {

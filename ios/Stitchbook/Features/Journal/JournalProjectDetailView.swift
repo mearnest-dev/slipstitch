@@ -3,7 +3,7 @@ import SwiftUI
 /// The journaling heart: a project's cover, details, and a vertical timeline of
 /// progress logs (newest first). Status is tappable to change; project fields
 /// can be edited; the project can be deleted.
-struct ProjectDetailView: View {
+struct JournalProjectDetailView: View {
     let projectId: String
     /// Called when the project changes in a way the list should reflect
     /// (status change, edit, delete).
