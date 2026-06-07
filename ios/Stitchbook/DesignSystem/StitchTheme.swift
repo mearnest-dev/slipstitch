@@ -6,30 +6,44 @@ import SwiftUI
 enum StitchTheme {
 
     enum Color {
-        // Pastel palette
-        static let blush      = SwiftUI.Color(hex: 0xF7C8D8) // primary pink
+        // Brand (Stitchbook purple) — the functional accent. Reserved for CTAs,
+        // active states, and brand moments; soft pastels carry the rest.
+        static let brand      = SwiftUI.Color(hex: 0x8A43FE) // primary
+        static let brandDeep  = SwiftUI.Color(hex: 0x5701E4) // color-500, pressed / gradient base
+        static let brand700   = SwiftUI.Color(hex: 0x31017F)
+        static let brand100   = SwiftUI.Color(hex: 0xD0B3FF) // lightest tint
+        static let brandTint   = SwiftUI.Color(hex: 0xEDE3FF) // very soft brand wash for surfaces
+
+        // Pastel supporting palette (placeholders, status chips, cozy accents)
+        static let blush      = SwiftUI.Color(hex: 0xF7C8D8)
         static let mint       = SwiftUI.Color(hex: 0xC8E6D4)
         static let lavender   = SwiftUI.Color(hex: 0xD8CCF0)
         static let butter     = SwiftUI.Color(hex: 0xF7E6B0)
         static let sky        = SwiftUI.Color(hex: 0xBFE0F0)
         static let peach      = SwiftUI.Color(hex: 0xF7D6BF)
 
-        static let accent     = SwiftUI.Color(hex: 0xE89BB4) // slightly deeper blush for tint/CTA
-        static let accentSoft  = blush
+        static let accent     = brand     // tint / icons / links / CTA
+        static let accentSoft  = brand100
 
-        static let background  = SwiftUI.Color(hex: 0xFFFBF7) // warm off-white
+        static let background  = SwiftUI.Color(hex: 0xFBFAFF) // soft lavender-white
         static let surface     = SwiftUI.Color.white
-        static let surfaceAlt   = SwiftUI.Color(hex: 0xFBF3EE)
+        static let surfaceAlt   = SwiftUI.Color(hex: 0xF4F0FB)
 
-        static let textPrimary   = SwiftUI.Color(hex: 0x4A3F44)
-        static let textSecondary = SwiftUI.Color(hex: 0x9A8E92)
-        static let divider       = SwiftUI.Color(hex: 0xEFE6E0)
+        static let textPrimary   = SwiftUI.Color(hex: 0x241B33) // near-brand ink
+        static let textSecondary = SwiftUI.Color(hex: 0x8B82A0)
+        static let divider       = SwiftUI.Color(hex: 0xECE7F4)
 
         /// Deterministic pastel for an id (e.g. project cover placeholder).
         static func pastel(for seed: String) -> SwiftUI.Color {
-            let palette = [blush, mint, lavender, butter, sky, peach]
+            let palette = [lavender, blush, mint, butter, sky, peach, brand100]
             let idx = abs(seed.hashValue) % palette.count
             return palette[idx]
+        }
+
+        /// Premium brand gradient for primary CTAs / hero moments.
+        static var brandGradient: LinearGradient {
+            LinearGradient(colors: [brand, brandDeep],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
 

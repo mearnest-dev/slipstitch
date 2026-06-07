@@ -34,9 +34,10 @@ struct StitchPrimaryButton: View {
             .font(StitchTheme.Font.headline)
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(StitchTheme.Color.accent)
+            .padding(.vertical, 15)
+            .background(StitchTheme.Color.brandGradient)
             .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
+            .shadow(color: StitchTheme.Color.brand.opacity(0.32), radius: 12, y: 6)
         }
         .disabled(isLoading)
     }

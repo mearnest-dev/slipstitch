@@ -22,11 +22,17 @@ struct AuthFlowView: View {
                 VStack(spacing: StitchTheme.Spacing.xl) {
                     Spacer()
 
-                    VStack(spacing: StitchTheme.Spacing.md) {
-                        Text("🧶").font(.system(size: 84))
-                        Text("Stitchbook")
-                            .font(StitchTheme.Font.largeTitle)
-                            .foregroundStyle(StitchTheme.Color.textPrimary)
+                    VStack(spacing: StitchTheme.Spacing.lg) {
+                        Image("Glyph")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 96, height: 96)
+                            .shadow(color: StitchTheme.Color.brand.opacity(0.25), radius: 16, y: 8)
+                        Image("Wordmark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 220)
+                            .accessibilityLabel("Stitchbook")
                         Text("Your cozy corner for tracking every stitch, skein, and finished make.")
                             .font(StitchTheme.Font.body)
                             .foregroundStyle(StitchTheme.Color.textSecondary)

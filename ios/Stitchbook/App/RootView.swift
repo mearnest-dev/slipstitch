@@ -40,13 +40,12 @@ struct MainTabView: View {
 struct StitchSplash: View {
     var body: some View {
         ZStack {
-            StitchTheme.Color.background.ignoresSafeArea()
-            VStack(spacing: 12) {
-                Text("🧶").font(.system(size: 64))
-                Text("Stitchbook")
-                    .font(StitchTheme.Font.title)
-                    .foregroundStyle(StitchTheme.Color.textPrimary)
-            }
+            StitchTheme.Color.brandGradient.ignoresSafeArea()
+            Image("WordmarkWhite")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 240)
+                .accessibilityLabel("Stitchbook")
         }
     }
 }
