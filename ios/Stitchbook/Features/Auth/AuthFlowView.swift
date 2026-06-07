@@ -88,7 +88,8 @@ struct AuthFlowView: View {
                 handleAppleCompletion(result)
             }
             .signInWithAppleButtonStyle(.black)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
             .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
             .disabled(isAppleLoading)
             .opacity(isAppleLoading ? 0.5 : 1)
