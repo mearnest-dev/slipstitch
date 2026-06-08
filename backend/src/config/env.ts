@@ -26,6 +26,10 @@ const schema = z.object({
     .string()
     .default("false")
     .transform((v) => v === "true"),
+
+  // Ravelry read-only API credentials (Basic Auth) powering external search.
+  RAVELRY_USERNAME: z.string().optional(),
+  RAVELRY_PASSWORD: z.string().optional(),
 });
 
 export const env = schema.parse(process.env);

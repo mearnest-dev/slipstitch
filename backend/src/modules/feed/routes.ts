@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/db.js";
 import { env } from "../../config/env.js";
 import { paginationQuery, type Page } from "../../lib/pagination.js";
+import { searchRavelryPatterns, ravelryConfigured } from "../../lib/ravelry.js";
 import {
   projectSelect,
   serializeProject,
@@ -59,14 +60,12 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
       const viewerId = req.userId;
 
       const wantInternal = source === "internal" || source === "both";
-      // External results are gated behind the feature flag. When the flag is off
-      // we return NO external results regardless of `source`.
-      //
-      // NOTE: live Pinterest / web ingestion lands later. For now external
-      // results are served only from the cached ExternalPin table; there is no
-      // live crawl here.
+      // External results come from Ravelry (live), gated behind the feature flag
+      // AND configured credentials. When off, no external results are returned.
       const wantExternal =
-        (source === "external" || source === "both") && env.EXTERNAL_SEARCH_ENABLED;
+        (source === "external" || source === "both") &&
+        env.EXTERNAL_SEARCH_ENABLED &&
+        ravelryConfigured();
 
       // Cursor encodes which stream it points into so "both" can resume cleanly:
       //   "p:<id>" for an internal project, "e:<id>" for an external pin.
@@ -100,29 +99,36 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
         internalNext = hasMore ? `p:${slice[slice.length - 1]!.id}` : null;
       }
 
-      // --- external pins -----------------------------------------------------
+      // --- external pins (live Ravelry search) -------------------------------
+      // Results are upserted into ExternalPin (keyed by sourceUrl) so each has a
+      // stable id and can be saved to a collection. Ravelry paginates by page;
+      // the external cursor is "e:<page>". Failures degrade to no external results.
       let external: SearchResultDTO[] = [];
       let externalNext: string | null = null;
       if (wantExternal) {
-        const pins = await prisma.externalPin.findMany({
-          where: {
-            OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { sourceUrl: { contains: q, mode: "insensitive" } },
-            ],
-          },
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: limit + 1,
-          ...(parsed.pin ? { cursor: { id: parsed.pin }, skip: 1 } : {}),
-          select: externalPinSelect,
-        });
-        const hasMore = pins.length > limit;
-        const slice = hasMore ? pins.slice(0, limit) : pins;
-        external = slice.map((pin) => ({
-          kind: "pin" as const,
-          pin: serializeExternalPin(pin),
-        }));
-        externalNext = hasMore ? `e:${slice[slice.length - 1]!.id}` : null;
+        const page = parsed.externalPage ?? 1;
+        try {
+          const { items: found, hasMore } = await searchRavelryPatterns(q, page, limit);
+          const stored = await Promise.all(
+            found.map((p) =>
+              prisma.externalPin.upsert({
+                where: { sourceUrl: p.sourceUrl },
+                create: {
+                  source: "ravelry",
+                  sourceUrl: p.sourceUrl,
+                  imageUrl: p.imageUrl,
+                  title: p.title,
+                },
+                update: { imageUrl: p.imageUrl, title: p.title },
+                select: externalPinSelect,
+              }),
+            ),
+          );
+          external = stored.map((pin) => ({ kind: "pin" as const, pin: serializeExternalPin(pin) }));
+          externalNext = hasMore ? `e:${page + 1}` : null;
+        } catch (err) {
+          req.log.warn({ err }, "ravelry search failed; returning no external results");
+        }
       }
 
       // --- combine -----------------------------------------------------------
@@ -145,12 +151,12 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
   );
 };
 
-// Cursor is "p:<id>" (project stream) or "e:<id>" (pin stream); a bare id is
+// Cursor is "p:<id>" (project stream) or "e:<page>" (Ravelry page); a bare id is
 // treated as a project cursor for backwards-compatibility.
-function parseCursor(cursor: string | undefined): { project?: string; pin?: string } {
+function parseCursor(cursor: string | undefined): { project?: string; externalPage?: number } {
   if (!cursor) return {};
   if (cursor.startsWith("p:")) return { project: cursor.slice(2) };
-  if (cursor.startsWith("e:")) return { pin: cursor.slice(2) };
+  if (cursor.startsWith("e:")) return { externalPage: Number(cursor.slice(2)) || 1 };
   return { project: cursor };
 }
 
