@@ -55,6 +55,9 @@ export async function buildServer() {
 // Entrypoint — this file is only ever executed (never imported), so always boot.
 // (No `import.meta.url === file://process.argv[1]` guard: it's an ESM footgun that
 // can silently evaluate false in a container, skipping listen() entirely.)
+// build marker: v2-2026-06-08 (cache-bust: force a fresh tsc build on Railway)
+process.on("unhandledRejection", (e) => console.error("[boot] unhandledRejection:", e));
+process.on("uncaughtException", (e) => console.error("[boot] uncaughtException:", e));
 console.log(`[boot] Slipstitch API starting — NODE_ENV=${env.NODE_ENV} PORT=${env.PORT}`);
 buildServer()
   // Bind "::" (dual-stack: IPv6 + IPv4) — Railway's healthcheck/private network
