@@ -11,12 +11,14 @@ struct CollectionsService {
         let name: String
         let description: String?
         let isPublic: Bool
+        let coverPhotoId: String?
     }
 
     private struct UpdateBody: Encodable {
         let name: String?
         let description: String?
         let isPublic: Bool?
+        let coverPhotoId: String?
     }
 
     // MARK: Detail response (Collection + nested items)
@@ -45,11 +47,13 @@ struct CollectionsService {
         try await client.send(.GET, "/collections")
     }
 
-    func create(name: String, description: String?, isPublic: Bool) async throws -> Collection {
+    func create(name: String, description: String?, isPublic: Bool,
+                coverPhotoId: String? = nil) async throws -> Collection {
         let body = CreateBody(
             name: name,
             description: (description?.isEmpty == false) ? description : nil,
-            isPublic: isPublic
+            isPublic: isPublic,
+            coverPhotoId: coverPhotoId
         )
         return try await client.send(.POST, "/collections", body: body)
     }
@@ -58,8 +62,10 @@ struct CollectionsService {
         try await client.send(.GET, "/collections/\(id)")
     }
 
-    func update(id: String, name: String?, description: String?, isPublic: Bool?) async throws -> Collection {
-        let body = UpdateBody(name: name, description: description, isPublic: isPublic)
+    func update(id: String, name: String?, description: String?, isPublic: Bool?,
+                coverPhotoId: String? = nil) async throws -> Collection {
+        let body = UpdateBody(name: name, description: description, isPublic: isPublic,
+                              coverPhotoId: coverPhotoId)
         return try await client.send(.PATCH, "/collections/\(id)", body: body)
     }
 

@@ -93,10 +93,29 @@ struct ExternalPin: Codable, Identifiable, Hashable {
     let createdAt: Date?
 }
 
+/// Compact owner embedded in collection-item projects.
+struct CompactOwner: Codable, Hashable {
+    let id: String
+    let username: String
+    let displayName: String
+}
+
+/// Lightweight project shape embedded in collection items (the API returns a
+/// compact projection here, not the full Project DTO).
+struct CollectionItemProject: Codable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    let coverUrl: String?
+    let owner: CompactOwner
+    let status: ProjectStatus
+    let likeCount: Int
+    let createdAt: Date
+}
+
 struct CollectionItem: Codable, Identifiable, Hashable {
     let id: String
     let kind: String // "project" | "pin"
-    let project: Project?
+    let project: CollectionItemProject?
     let pin: ExternalPin?
     let createdAt: Date
 }

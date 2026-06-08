@@ -17,6 +17,7 @@ const createSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
   isPublic: z.boolean().optional(),
+  coverPhotoId: z.string().nullable().optional(),
 });
 
 const updateSchema = z
@@ -24,6 +25,7 @@ const updateSchema = z
     name: z.string().min(1).max(120).optional(),
     description: z.string().max(2000).nullable().optional(),
     isPublic: z.boolean().optional(),
+    coverPhotoId: z.string().nullable().optional(),
   })
   .refine((b) => Object.keys(b).length > 0, { message: "No fields to update" });
 
@@ -87,6 +89,7 @@ export const collectionRoutes: FastifyPluginAsync = async (app) => {
         name: body.name,
         description: body.description,
         isPublic: body.isPublic ?? false,
+        coverPhotoId: body.coverPhotoId ?? null,
       },
       include: { _count: { select: { items: true } } },
     });
@@ -131,6 +134,7 @@ export const collectionRoutes: FastifyPluginAsync = async (app) => {
         name: body.name,
         description: body.description,
         isPublic: body.isPublic,
+        coverPhotoId: body.coverPhotoId,
       },
       include: { _count: { select: { items: true } } },
     });

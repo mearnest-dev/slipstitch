@@ -13,6 +13,7 @@ struct NewProjectView: View {
     @State private var hookSize = ""
     @State private var status: ProjectStatus = .planning
     @State private var isPublic = false
+    @State private var coverPhotoId: String?
 
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -26,6 +27,11 @@ struct NewProjectView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Cover photo") {
+                    CoverPhotoPicker(photoId: $coverPhotoId)
+                        .listRowInsets(EdgeInsets())
+                }
+
                 Section("The make") {
                     TextField("Title", text: $title)
                     TextField("Craft type (amigurumi, blanket…)", text: $craftType)
@@ -92,7 +98,8 @@ struct NewProjectView: View {
                     yarn: trimmed(yarn),
                     hookSize: trimmed(hookSize),
                     status: status,
-                    isPublic: isPublic
+                    isPublic: isPublic,
+                    coverPhotoId: coverPhotoId
                 )
                 onCreated()
                 dismiss()

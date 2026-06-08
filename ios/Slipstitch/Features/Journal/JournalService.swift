@@ -64,9 +64,10 @@ struct JournalService {
 
     func create(title: String, description: String?, craftType: String?,
                 yarn: String?, hookSize: String?, status: ProjectStatus,
-                isPublic: Bool) async throws -> Project {
+                isPublic: Bool, coverPhotoId: String? = nil) async throws -> Project {
         let body = ProjectInput(title: title, description: description, craftType: craftType,
-                                yarn: yarn, hookSize: hookSize, status: status, isPublic: isPublic)
+                                yarn: yarn, hookSize: hookSize, status: status,
+                                isPublic: isPublic, coverPhotoId: coverPhotoId)
         return try await client.send(.POST, "/projects", body: body)
     }
 

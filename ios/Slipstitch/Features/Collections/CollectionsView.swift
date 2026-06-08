@@ -32,8 +32,9 @@ struct CollectionsView: View {
                     }
                 }
                 .sheet(isPresented: $showingCreate) {
-                    CreateCollectionSheet { name, description, isPublic in
-                        try await model.create(name: name, description: description, isPublic: isPublic)
+                    CreateCollectionSheet { name, description, isPublic, coverPhotoId in
+                        try await model.create(name: name, description: description,
+                                               isPublic: isPublic, coverPhotoId: coverPhotoId)
                     }
                 }
                 .task { await model.load() }
@@ -140,8 +141,9 @@ final class CollectionsViewModel: ObservableObject {
         }
     }
 
-    func create(name: String, description: String?, isPublic: Bool) async throws {
-        let created = try await service.create(name: name, description: description, isPublic: isPublic)
+    func create(name: String, description: String?, isPublic: Bool, coverPhotoId: String?) async throws {
+        let created = try await service.create(name: name, description: description,
+                                               isPublic: isPublic, coverPhotoId: coverPhotoId)
         collections.insert(created, at: 0)
         phase = .loaded
     }
@@ -153,11 +155,12 @@ private struct CreateCollectionSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     /// Performs the create; throws to surface an error inside the sheet.
-    let onCreate: (String, String?, Bool) async throws -> Void
+    let onCreate: (String, String?, Bool, String?) async throws -> Void
 
     @State private var name = ""
     @State private var description = ""
     @State private var isPublic = false
+    @State private var coverPhotoId: String?
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -168,6 +171,10 @@ private struct CreateCollectionSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Cover photo") {
+                    CoverPhotoPicker(photoId: $coverPhotoId)
+                        .listRowInsets(EdgeInsets())
+                }
                 Section("Name") {
                     TextField("e.g. Cozy blankets", text: $name)
                 }
@@ -218,7 +225,7 @@ private struct CreateCollectionSheet: View {
         do {
             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
-            try await onCreate(trimmedName, trimmedDesc.isEmpty ? nil : trimmedDesc, isPublic)
+            try await onCreate(trimmedName, trimmedDesc.isEmpty ? nil : trimmedDesc, isPublic, coverPhotoId)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

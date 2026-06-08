@@ -51,8 +51,9 @@ struct CollectionDetailView: View {
             }
             .sheet(isPresented: $showingEdit) {
                 if let collection = model.collection {
-                    EditCollectionSheet(collection: collection) { name, description, isPublic in
-                        try await model.update(name: name, description: description, isPublic: isPublic)
+                    EditCollectionSheet(collection: collection) { name, description, isPublic, coverPhotoId in
+                        try await model.update(name: name, description: description,
+                                               isPublic: isPublic, coverPhotoId: coverPhotoId)
                         await onChange?()
                     }
                 }
@@ -284,9 +285,10 @@ final class CollectionDetailViewModel: ObservableObject {
         }
     }
 
-    func update(name: String?, description: String?, isPublic: Bool?) async throws {
+    func update(name: String?, description: String?, isPublic: Bool?, coverPhotoId: String?) async throws {
         let updated = try await service.update(
-            id: collectionId, name: name, description: description, isPublic: isPublic
+            id: collectionId, name: name, description: description, isPublic: isPublic,
+            coverPhotoId: coverPhotoId
         )
         collection = updated
     }
@@ -318,15 +320,16 @@ private struct EditCollectionSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let collection: Collection
-    let onSave: (String, String?, Bool) async throws -> Void
+    let onSave: (String, String?, Bool, String?) async throws -> Void
 
     @State private var name: String
     @State private var description: String
     @State private var isPublic: Bool
+    @State private var coverPhotoId: String?
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    init(collection: Collection, onSave: @escaping (String, String?, Bool) async throws -> Void) {
+    init(collection: Collection, onSave: @escaping (String, String?, Bool, String?) async throws -> Void) {
         self.collection = collection
         self.onSave = onSave
         _name = State(initialValue: collection.name)
@@ -341,6 +344,10 @@ private struct EditCollectionSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Cover photo") {
+                    CoverPhotoPicker(photoId: $coverPhotoId, existingURL: collection.coverUrl)
+                        .listRowInsets(EdgeInsets())
+                }
                 Section("Name") {
                     TextField("Name", text: $name)
                 }
@@ -387,7 +394,7 @@ private struct EditCollectionSheet: View {
         do {
             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
-            try await onSave(trimmedName, trimmedDesc.isEmpty ? nil : trimmedDesc, isPublic)
+            try await onSave(trimmedName, trimmedDesc.isEmpty ? nil : trimmedDesc, isPublic, coverPhotoId)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
