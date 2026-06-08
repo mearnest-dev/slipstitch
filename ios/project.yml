@@ -25,6 +25,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.slipstitch.app
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only (portrait-first); avoids iPad all-orientations requirement
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Slipstitch needs access to your photos so you can add pictures of your crochet projects."
