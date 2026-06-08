@@ -57,7 +57,9 @@ export async function buildServer() {
 // can silently evaluate false in a container, skipping listen() entirely.)
 console.log(`[boot] Slipstitch API starting — NODE_ENV=${env.NODE_ENV} PORT=${env.PORT}`);
 buildServer()
-  .then((app) => app.listen({ port: env.PORT, host: "0.0.0.0" }))
+  // Bind "::" (dual-stack: IPv6 + IPv4) — Railway's healthcheck/private network
+  // reaches the container over IPv6, so binding 0.0.0.0 (IPv4-only) fails the probe.
+  .then((app) => app.listen({ port: env.PORT, host: "::" }))
   .then((addr) => console.log(`[boot] 🧶 listening at ${addr}`))
   .catch((err) => {
     console.error("[boot] FATAL — server failed to start:", err);
