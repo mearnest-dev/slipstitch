@@ -65,9 +65,16 @@ export async function searchRavelryPatterns(
   url.searchParams.set("page", String(Math.max(1, page)));
   url.searchParams.set("page_size", String(pageSize));
 
-  const res = await fetch(url, { headers: { Authorization: authHeader() } });
+  const res = await fetch(url, {
+    headers: {
+      Authorization: authHeader(),
+      Accept: "application/json",
+      "User-Agent": "Slipstitch/0.1 (+https://slipstitch.app)",
+    },
+  });
   if (!res.ok) {
-    throw new Error(`Ravelry search failed (${res.status})`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`Ravelry search failed (${res.status}): ${body.slice(0, 300)}`);
   }
   const data = (await res.json()) as RavelrySearchResponse;
 
