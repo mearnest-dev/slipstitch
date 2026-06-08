@@ -26,6 +26,6 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY --from=build /app/dist ./dist
 
-EXPOSE 3000
+EXPOSE 8080
 # Apply migrations on boot, then start. (Railway injects DATABASE_URL + PORT.)
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

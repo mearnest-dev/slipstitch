@@ -52,14 +52,14 @@ export async function buildServer() {
   return app;
 }
 
-// Entrypoint
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
-  buildServer()
-    .then((app) => app.listen({ port: env.PORT, host: "0.0.0.0" }))
-    .then((addr) => console.log(`🧶 Slipstitch API listening at ${addr}`))
-    .catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });
-}
+// Entrypoint — this file is only ever executed (never imported), so always boot.
+// (No `import.meta.url === file://process.argv[1]` guard: it's an ESM footgun that
+// can silently evaluate false in a container, skipping listen() entirely.)
+console.log(`[boot] Slipstitch API starting — NODE_ENV=${env.NODE_ENV} PORT=${env.PORT}`);
+buildServer()
+  .then((app) => app.listen({ port: env.PORT, host: "0.0.0.0" }))
+  .then((addr) => console.log(`[boot] 🧶 listening at ${addr}`))
+  .catch((err) => {
+    console.error("[boot] FATAL — server failed to start:", err);
+    process.exit(1);
+  });

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce.number().default(8080), // Railway's conventional port; used when PORT isn't injected
   // A Postgres connection string is not a web URL — `.url()` (new URL()) rejects
   // valid ones whose password contains chars like / + = (common in Railway's
   // generated passwords). Prisma parses it itself, so just require non-empty.
