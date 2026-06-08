@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/db.js";
 import { env } from "../../config/env.js";
 import { paginationQuery, type Page } from "../../lib/pagination.js";
-import { searchRavelryPatterns, ravelryConfigured } from "../../lib/ravelry.js";
+import { searchRavelryPatterns, ravelryConfigured, type RavelryPin } from "../../lib/ravelry.js";
 import {
   projectSelect,
   serializeProject,
@@ -25,28 +25,60 @@ const searchQuery = paginationQuery.extend({
 });
 
 export const feedRoutes: FastifyPluginAsync = async (app) => {
-  // GET /feed — public projects, recency-ranked (newest first). Cursor paginates
-  // on (createdAt, id). We over-fetch by one row to derive nextCursor, and the
-  // ordering secondarily reflects like volume via the _count exposed in the DTO.
+  // GET /feed — the default Discover feed: public projects (recency) blended with
+  // popular Ravelry crochet patterns when external search is enabled. Returns
+  // SearchResults (project | pin) so the client renders a mixed grid. Cursor is
+  // dual-stream ("p:<id>" internal, "e:<page>" Ravelry), same as /search.
   app.get(
     "/feed",
     { preHandler: app.optionalAuth },
-    async (req): Promise<Page<ProjectDTO>> => {
+    async (req): Promise<Page<SearchResultDTO>> => {
       const { cursor, limit } = paginationQuery.parse(req.query);
       const viewerId = req.userId;
+      const parsed = parseCursor(cursor);
+      const wantExternal = env.EXTERNAL_SEARCH_ENABLED && ravelryConfigured();
 
+      // internal: public projects, newest first
       const rows = await prisma.project.findMany({
         where: { isPublic: true },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        ...(parsed.project ? { cursor: { id: parsed.project }, skip: 1 } : {}),
         select: projectSelect(viewerId),
       });
+      const internalHasMore = rows.length > limit;
+      const internalSlice = internalHasMore ? rows.slice(0, limit) : rows;
+      const internal: SearchResultDTO[] = internalSlice.map((p) => ({
+        kind: "project" as const,
+        project: serializeProject(p, { viewerId }),
+      }));
+      const internalNext = internalHasMore
+        ? `p:${internalSlice[internalSlice.length - 1]!.id}`
+        : null;
 
-      const hasMore = rows.length > limit;
-      const page = hasMore ? rows.slice(0, limit) : rows;
-      const items = page.map((p) => serializeProject(p, { viewerId }));
-      const nextCursor = hasMore ? page[page.length - 1]!.id : null;
+      // external: popular Ravelry crochet patterns (rotating term for variety)
+      let external: SearchResultDTO[] = [];
+      let externalNext: string | null = null;
+      if (wantExternal) {
+        const page = parsed.externalPage ?? 1;
+        try {
+          const { items: found, hasMore } = await searchRavelryPatterns(
+            feedRavelryTerm(),
+            page,
+            limit,
+          );
+          const stored = await upsertRavelryPins(found);
+          external = stored.map((pin) => ({ kind: "pin" as const, pin: serializeExternalPin(pin) }));
+          externalNext = hasMore ? `e:${page + 1}` : null;
+        } catch (err) {
+          req.log.warn({ err }, "ravelry feed fetch failed; internal-only feed");
+        }
+      }
+
+      const items = wantExternal
+        ? interleave(internal, external).slice(0, limit)
+        : internal.slice(0, limit);
+      const nextCursor = internalNext ?? externalNext;
       return { items, nextCursor };
     },
   );
@@ -109,21 +141,7 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
         const page = parsed.externalPage ?? 1;
         try {
           const { items: found, hasMore } = await searchRavelryPatterns(q, page, limit);
-          const stored = await Promise.all(
-            found.map((p) =>
-              prisma.externalPin.upsert({
-                where: { sourceUrl: p.sourceUrl },
-                create: {
-                  source: "ravelry",
-                  sourceUrl: p.sourceUrl,
-                  imageUrl: p.imageUrl,
-                  title: p.title,
-                },
-                update: { imageUrl: p.imageUrl, title: p.title },
-                select: externalPinSelect,
-              }),
-            ),
-          );
+          const stored = await upsertRavelryPins(found);
           external = stored.map((pin) => ({ kind: "pin" as const, pin: serializeExternalPin(pin) }));
           externalNext = hasMore ? `e:${page + 1}` : null;
         } catch (err) {
@@ -158,6 +176,37 @@ function parseCursor(cursor: string | undefined): { project?: string; externalPa
   if (cursor.startsWith("p:")) return { project: cursor.slice(2) };
   if (cursor.startsWith("e:")) return { externalPage: Number(cursor.slice(2)) || 1 };
   return { project: cursor };
+}
+
+// Upsert Ravelry results into ExternalPin (keyed by sourceUrl) so each has a
+// stable id and is saveable to a collection. Shared by /feed and /search.
+function upsertRavelryPins(pins: RavelryPin[]) {
+  return Promise.all(
+    pins.map((p) =>
+      prisma.externalPin.upsert({
+        where: { sourceUrl: p.sourceUrl },
+        create: { source: "ravelry", sourceUrl: p.sourceUrl, imageUrl: p.imageUrl, title: p.title },
+        update: { imageUrl: p.imageUrl, title: p.title },
+        select: externalPinSelect,
+      }),
+    ),
+  );
+}
+
+// Popular crochet terms for the default feed's external slice — rotated by the
+// hour so the discovery feed stays fresh without per-request randomness.
+const FEED_TERMS = [
+  "amigurumi",
+  "granny square",
+  "crochet blanket",
+  "crochet sweater",
+  "crochet bag",
+  "crochet hat",
+  "crochet shawl",
+  "crochet top",
+];
+function feedRavelryTerm(): string {
+  return FEED_TERMS[new Date().getUTCHours() % FEED_TERMS.length]!;
 }
 
 // Round-robin merge of two result streams so "both" alternates sources.
