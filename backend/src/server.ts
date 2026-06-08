@@ -60,9 +60,9 @@ process.on("unhandledRejection", (e) => console.error("[boot] unhandledRejection
 process.on("uncaughtException", (e) => console.error("[boot] uncaughtException:", e));
 console.log(`[boot] Slipstitch API starting — NODE_ENV=${env.NODE_ENV} PORT=${env.PORT}`);
 buildServer()
-  // Bind "::" (dual-stack: IPv6 + IPv4) — Railway's healthcheck/private network
-  // reaches the container over IPv6, so binding 0.0.0.0 (IPv4-only) fails the probe.
-  .then((app) => app.listen({ port: env.PORT, host: "::" }))
+  // Bind 0.0.0.0 (Railway's documented recommendation). Binding "::" can throw
+  // EADDRNOTAVAIL in containers without IPv6, which rejects listen() and exits.
+  .then((app) => app.listen({ port: env.PORT, host: "0.0.0.0" }))
   .then((addr) => console.log(`[boot] 🧶 listening at ${addr}`))
   .catch((err) => {
     console.error("[boot] FATAL — server failed to start:", err);
