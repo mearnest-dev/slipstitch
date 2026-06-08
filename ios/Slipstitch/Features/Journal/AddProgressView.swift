@@ -1,11 +1,8 @@
 import SwiftUI
+import PhotosUI
 
 /// Sheet to log a new progress entry on a project.
-/// Note + optional row count + optional hours.
-///
-/// TODO(photo): photo attachment is intentionally not implemented here. Once the
-/// shared media uploader lands, capture/pick an image, upload it to R2 to obtain
-/// a `photoId`, and pass it through `JournalService.addLog(photoId:)`.
+/// Note + optional row count + optional hours + optional photo.
 struct AddProgressView: View {
     let projectId: String
     var onAdded: () -> Void
@@ -18,6 +15,12 @@ struct AddProgressView: View {
     @State private var includeHours = false
     @State private var hoursText = ""
 
+    // Photo attachment
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var pickedImage: UIImage?
+    @State private var uploadedPhotoId: String?
+    @State private var isUploadingPhoto = false
+
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -25,9 +28,8 @@ struct AddProgressView: View {
 
     private var canSave: Bool {
         let hasNote = !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasRows = includeRows
-        let hasHours = includeHours && (Double(hoursText) ?? 0) > 0
-        return (hasNote || hasRows || hasHours) && !isSaving
+        let hasContent = hasNote || includeRows || (includeHours && (Double(hoursText) ?? 0) > 0) || uploadedPhotoId != nil
+        return hasContent && !isSaving && !isUploadingPhoto
     }
 
     var body: some View {
@@ -48,6 +50,10 @@ struct AddProgressView: View {
                         }
                 }
 
+                Section("Photo") {
+                    photoRow
+                }
+
                 Section("Rows") {
                     Toggle("Log rows", isOn: $includeRows)
                     if includeRows {
@@ -62,9 +68,6 @@ struct AddProgressView: View {
                             .keyboardType(.decimalPad)
                     }
                 }
-
-                // TODO(photo): add a photo picker row here once the shared media
-                // uploader is available (upload -> photoId -> addLog(photoId:)).
 
                 if let errorMessage {
                     Section {
@@ -91,6 +94,60 @@ struct AddProgressView: View {
                     }
                 }
             }
+            .onChange(of: pickerItem) { _, newItem in
+                guard let newItem else { return }
+                Task { await loadAndUpload(newItem) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var photoRow: some View {
+        if let image = pickedImage {
+            HStack(spacing: StitchTheme.Spacing.md) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.sm, style: .continuous))
+                if isUploadingPhoto {
+                    ProgressView().tint(StitchTheme.Color.accent)
+                    Text("Uploading…").font(StitchTheme.Font.caption)
+                        .foregroundStyle(StitchTheme.Color.textSecondary)
+                } else if uploadedPhotoId != nil {
+                    Label("Attached", systemImage: "checkmark.circle.fill")
+                        .font(StitchTheme.Font.caption)
+                        .foregroundStyle(StitchTheme.Color.accent)
+                }
+                Spacer()
+                Button(role: .destructive) {
+                    pickerItem = nil; pickedImage = nil; uploadedPhotoId = nil
+                } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(StitchTheme.Color.textSecondary) }
+            }
+        } else {
+            PhotosPicker(selection: $pickerItem, matching: .images) {
+                Label("Add a photo", systemImage: "photo.badge.plus")
+                    .foregroundStyle(StitchTheme.Color.accent)
+            }
+        }
+    }
+
+    private func loadAndUpload(_ item: PhotosPickerItem) async {
+        errorMessage = nil
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                errorMessage = "Couldn't read that photo."
+                return
+            }
+            pickedImage = image
+            isUploadingPhoto = true
+            let photo = try await MediaUploader.uploadJPEG(image)
+            uploadedPhotoId = photo.id
+            isUploadingPhoto = false
+        } catch {
+            isUploadingPhoto = false
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Photo upload failed."
         }
     }
 
@@ -106,7 +163,8 @@ struct AddProgressView: View {
                     projectId: projectId,
                     note: trimmedNote.isEmpty ? nil : trimmedNote,
                     rowCount: rows,
-                    hoursSpent: hours
+                    hoursSpent: hours,
+                    photoId: uploadedPhotoId
                 )
                 onAdded()
                 dismiss()

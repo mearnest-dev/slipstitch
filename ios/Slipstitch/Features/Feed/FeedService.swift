@@ -32,7 +32,9 @@ struct FeedService {
 
     // MARK: Feed
 
-    func fetchFeed(cursor: String?) async throws -> Page<Project> {
+    /// The default Discover feed now returns mixed results (internal projects +
+    /// external Ravelry pins), same shape as search.
+    func fetchFeed(cursor: String?) async throws -> Page<SearchResult> {
         var query: [String: String] = [:]
         if let cursor { query["cursor"] = cursor }
         return try await client.send(.GET, "/feed", query: query)
@@ -64,10 +66,33 @@ struct FeedService {
         try await client.send(.GET, "/collections")
     }
 
+    func createCollection(name: String) async throws -> Collection {
+        struct Body: Encodable { let name: String; let isPublic: Bool }
+        return try await client.send(.POST, "/collections", body: Body(name: name, isPublic: false))
+    }
+
     @discardableResult
-    func addToCollection(collectionId: String, projectId: String) async throws -> CollectionItem {
-        struct Body: Encodable { let projectId: String }
-        return try await client.send(.POST, "/collections/\(collectionId)/items",
-                                     body: Body(projectId: projectId))
+    func addToCollection(collectionId: String, target: CollectionTarget) async throws -> CollectionItem {
+        switch target {
+        case let .project(id):
+            struct Body: Encodable { let projectId: String }
+            return try await client.send(.POST, "/collections/\(collectionId)/items", body: Body(projectId: id))
+        case let .pin(id):
+            struct Body: Encodable { let externalPinId: String }
+            return try await client.send(.POST, "/collections/\(collectionId)/items", body: Body(externalPinId: id))
+        }
+    }
+}
+
+/// What's being saved into a collection — an internal project or an external pin.
+enum CollectionTarget: Identifiable, Hashable {
+    case project(String)
+    case pin(String)
+
+    var id: String {
+        switch self {
+        case let .project(i): return "project-\(i)"
+        case let .pin(i): return "pin-\(i)"
+        }
     }
 }

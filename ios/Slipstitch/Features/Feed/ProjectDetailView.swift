@@ -30,7 +30,7 @@ struct ProjectDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .ignoresSafeArea(edges: .top)
         .sheet(isPresented: $showSaveSheet) {
-            SaveToCollectionSheet(projectId: initialProject.id)
+            SaveToCollectionSheet(target: .project(initialProject.id))
         }
     }
 
@@ -210,8 +210,8 @@ struct ProjectDetailView: View {
 
 // MARK: - Save to collection sheet
 
-private struct SaveToCollectionSheet: View {
-    let projectId: String
+struct SaveToCollectionSheet: View {
+    let target: CollectionTarget
 
     @Environment(\.dismiss) private var dismiss
     @State private var collections: [Collection] = []
@@ -219,6 +219,8 @@ private struct SaveToCollectionSheet: View {
     @State private var errorMessage: String?
     @State private var savingId: String?
     @State private var savedId: String?
+    @State private var showingNew = false
+    @State private var newName = ""
 
     private let service = FeedService.shared
 
@@ -228,10 +230,8 @@ private struct SaveToCollectionSheet: View {
                 if isLoading {
                     ProgressView().tint(StitchTheme.Color.accent)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let errorMessage {
+                } else if let errorMessage, collections.isEmpty {
                     errorState(errorMessage)
-                } else if collections.isEmpty {
-                    emptyState
                 } else {
                     list
                 }
@@ -240,57 +240,61 @@ private struct SaveToCollectionSheet: View {
             .navigationTitle("Save to collection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingNew = true } label: { Image(systemName: "plus") }
+                        .foregroundStyle(StitchTheme.Color.accent)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .foregroundStyle(StitchTheme.Color.accent)
                 }
+            }
+            .alert("New collection", isPresented: $showingNew) {
+                TextField("Name", text: $newName)
+                Button("Cancel", role: .cancel) { newName = "" }
+                Button("Create") { createAndSave() }
+            } message: {
+                Text("Create a collection and save this to it.")
             }
         }
         .task { await load() }
     }
 
     private var list: some View {
-        List(collections) { collection in
-            Button { save(collection) } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(collection.name)
-                            .font(StitchTheme.Font.headline)
-                            .foregroundStyle(StitchTheme.Color.textPrimary)
-                        Text("\(collection.itemCount) items")
-                            .font(StitchTheme.Font.caption)
-                            .foregroundStyle(StitchTheme.Color.textSecondary)
-                    }
-                    Spacer()
-                    if savingId == collection.id {
-                        ProgressView().tint(StitchTheme.Color.accent)
-                    } else if savedId == collection.id {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(StitchTheme.Color.accent)
-                    } else {
-                        Image(systemName: "plus.circle")
-                            .foregroundStyle(StitchTheme.Color.textSecondary)
+        List {
+            if collections.isEmpty {
+                Text("No collections yet — tap + to make one.")
+                    .font(StitchTheme.Font.body)
+                    .foregroundStyle(StitchTheme.Color.textSecondary)
+                    .listRowBackground(StitchTheme.Color.surface)
+            }
+            ForEach(collections) { collection in
+                Button { save(collection) } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(collection.name)
+                                .font(StitchTheme.Font.headline)
+                                .foregroundStyle(StitchTheme.Color.textPrimary)
+                            Text("\(collection.itemCount) items")
+                                .font(StitchTheme.Font.caption)
+                                .foregroundStyle(StitchTheme.Color.textSecondary)
+                        }
+                        Spacer()
+                        if savingId == collection.id {
+                            ProgressView().tint(StitchTheme.Color.accent)
+                        } else if savedId == collection.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(StitchTheme.Color.accent)
+                        } else {
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(StitchTheme.Color.textSecondary)
+                        }
                     }
                 }
+                .listRowBackground(StitchTheme.Color.surface)
             }
-            .listRowBackground(StitchTheme.Color.surface)
         }
         .scrollContentBackground(.hidden)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: StitchTheme.Spacing.sm) {
-            Text("📌").font(.largeTitle)
-            Text("No collections yet")
-                .font(StitchTheme.Font.headline)
-                .foregroundStyle(StitchTheme.Color.textPrimary)
-            Text("Create a collection to save makes you love.")
-                .font(StitchTheme.Font.caption)
-                .foregroundStyle(StitchTheme.Color.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func errorState(_ message: String) -> some View {
@@ -325,7 +329,7 @@ private struct SaveToCollectionSheet: View {
         savingId = collection.id
         Task {
             do {
-                _ = try await service.addToCollection(collectionId: collection.id, projectId: projectId)
+                _ = try await service.addToCollection(collectionId: collection.id, target: target)
                 await MainActor.run {
                     savingId = nil
                     savedId = collection.id
@@ -335,6 +339,21 @@ private struct SaveToCollectionSheet: View {
                     savingId = nil
                     errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func createAndSave() {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newName = ""
+        guard !name.isEmpty else { return }
+        Task {
+            do {
+                let created = try await service.createCollection(name: name)
+                await MainActor.run { collections.insert(created, at: 0) }
+                save(created)
+            } catch {
+                await MainActor.run { errorMessage = error.localizedDescription }
             }
         }
     }

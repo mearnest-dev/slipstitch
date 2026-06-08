@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Slipstitch's pastel design system. Soft, cozy, craft-forward.
 /// All feature worktrees pull colors / fonts / spacing from here so the app
@@ -25,13 +26,15 @@ enum StitchTheme {
         static let accent     = brand     // tint / icons / links / CTA
         static let accentSoft  = brand100
 
-        static let background  = SwiftUI.Color(hex: 0xFBFAFF) // soft lavender-white
-        static let surface     = SwiftUI.Color.white
-        static let surfaceAlt   = SwiftUI.Color(hex: 0xF4F0FB)
+        // Structural colors adapt to light/dark. Brand purple + pastels stay fixed
+        // (they read well on both); only surfaces and ink flip.
+        static let background  = SwiftUI.Color.dynamic(light: 0xFBFAFF, dark: 0x100D18) // soft lavender-white / near-black plum
+        static let surface     = SwiftUI.Color.dynamic(light: 0xFFFFFF, dark: 0x1B1726)
+        static let surfaceAlt  = SwiftUI.Color.dynamic(light: 0xF4F0FB, dark: 0x261F36)
 
-        static let textPrimary   = SwiftUI.Color(hex: 0x241B33) // near-brand ink
-        static let textSecondary = SwiftUI.Color(hex: 0x8B82A0)
-        static let divider       = SwiftUI.Color(hex: 0xECE7F4)
+        static let textPrimary   = SwiftUI.Color.dynamic(light: 0x241B33, dark: 0xF3EFFA)
+        static let textSecondary = SwiftUI.Color.dynamic(light: 0x8B82A0, dark: 0x9E94B4)
+        static let divider       = SwiftUI.Color.dynamic(light: 0xECE7F4, dark: 0x2E2740)
 
         /// Deterministic pastel for an id (e.g. project cover placeholder).
         static func pastel(for seed: String) -> SwiftUI.Color {
@@ -79,6 +82,24 @@ extension Color {
             green: Double((hex >> 8) & 0xFF) / 255,
             blue: Double(hex & 0xFF) / 255,
             opacity: alpha
+        )
+    }
+
+    /// A color that resolves to `light` in light mode and `dark` in dark mode.
+    static func dynamic(light: UInt, dark: UInt) -> Color {
+        Color(uiColor: UIColor { trait in
+            UIColor(hex: trait.userInterfaceStyle == .dark ? dark : light)
+        })
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt, alpha: CGFloat = 1) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: alpha
         )
     }
 }

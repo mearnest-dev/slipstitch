@@ -4,6 +4,7 @@ import SwiftUI
 /// projects and external pins.
 struct DiscoverView: View {
     @StateObject private var model = DiscoverModel()
+    @State private var saveTarget: CollectionTarget?
 
     var body: some View {
         NavigationStack {
@@ -19,6 +20,9 @@ struct DiscoverView: View {
             .navigationDestination(for: Project.self) { project in
                 ProjectDetailView(project: project)
             }
+        }
+        .sheet(item: $saveTarget) { target in
+            SaveToCollectionSheet(target: target)
         }
         .task { await model.loadFeedIfNeeded() }
     }
@@ -109,11 +113,24 @@ struct DiscoverView: View {
                 ProjectCardView(project: project, coverHeight: card.coverHeight)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                Button { saveTarget = .project(project.id) } label: {
+                    Label("Save to collection", systemImage: "bookmark")
+                }
+            }
         case let .pin(pin):
             Link(destination: URL(string: pin.sourceUrl) ?? URL(string: "https://slipstitch.app")!) {
                 ExternalPinCardView(pin: pin, coverHeight: card.coverHeight)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                Button { saveTarget = .pin(pin.id) } label: {
+                    Label("Save to collection", systemImage: "bookmark")
+                }
+                if let url = URL(string: pin.sourceUrl) {
+                    Link(destination: url) { Label("Open in Ravelry", systemImage: "safari") }
+                }
+            }
         }
     }
 
@@ -340,7 +357,11 @@ final class DiscoverModel: ObservableObject {
         } else {
             let page = try await service.fetchFeed(cursor: cursor)
             nextCursor = page.nextCursor
-            return page.items.map { DiscoverCard(project: $0) }
+            return page.items.compactMap { result in
+                if let project = result.project { return DiscoverCard(project: project) }
+                if let pin = result.pin { return DiscoverCard(pin: pin) }
+                return nil
+            }
         }
     }
 
