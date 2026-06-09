@@ -29,6 +29,9 @@ model User {
   username     String   @unique
   displayName  String
   bio          String?
+  // Account-level defaults/preferences (Settings screen)
+  defaultCommentsEnabled Boolean @default(true)
+  notificationsEnabled   Boolean @default(false)
   avatarPhoto  Photo?   @relation("UserAvatar", fields: [avatarPhotoId], references: [id])
   avatarPhotoId String? @unique
   createdAt    DateTime @default(now())
@@ -38,6 +41,7 @@ model User {
   collections  Collection[]
   photos       Photo[]        @relation("PhotoOwner")
   likes        Like[]
+  comments     Comment[]
   refreshTokens RefreshToken[]
   following    Follow[]       @relation("Follower")
   followers    Follow[]       @relation("Following")
@@ -65,9 +69,11 @@ model Project {
   description String?
   craftType   String?       // e.g. "amigurumi", "blanket", "garment"
   yarn        String?
+  yarnWeight  String?       // standard weight category, e.g. "Medium (4)"
   hookSize    String?
   status      ProjectStatus @default(planning)
   isPublic    Boolean       @default(false)
+  commentsEnabled Boolean   @default(true)
   cover       Photo?        @relation("ProjectCover", fields: [coverPhotoId], references: [id])
   coverPhotoId String?
   createdAt   DateTime      @default(now())
@@ -76,6 +82,7 @@ model Project {
   logs        ProgressLog[]
   photos      Photo[]       @relation("ProjectPhotos")
   likes       Like[]
+  comments    Comment[]
   tags        ProjectTag[]
   collectionItems CollectionItem[]
 
@@ -170,6 +177,18 @@ model Like {
 
   @@id([userId, projectId])
   @@index([projectId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
 }
 
 model Follow {

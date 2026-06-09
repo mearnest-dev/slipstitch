@@ -11,8 +11,10 @@ struct EditProjectView: View {
     @State private var description: String
     @State private var craftType: String
     @State private var yarn: String
+    @State private var yarnWeight: String
     @State private var hookSize: String
     @State private var isPublic: Bool
+    @State private var commentsEnabled: Bool
     @State private var coverPhotoId: String?
 
     @State private var isSaving = false
@@ -27,8 +29,18 @@ struct EditProjectView: View {
         _description = State(initialValue: project.description ?? "")
         _craftType = State(initialValue: project.craftType ?? "")
         _yarn = State(initialValue: project.yarn ?? "")
+        _yarnWeight = State(initialValue: project.yarnWeight ?? "")
         _hookSize = State(initialValue: project.hookSize ?? "")
         _isPublic = State(initialValue: project.isPublic)
+        _commentsEnabled = State(initialValue: project.commentsEnabled ?? true)
+    }
+
+    /// Standard weights, plus the project's current custom value if it has one.
+    private var weightOptions: [String] {
+        if !yarnWeight.isEmpty && !YarnWeight.options.contains(yarnWeight) {
+            return YarnWeight.options + [yarnWeight]
+        }
+        return YarnWeight.options
     }
 
     private var canSave: Bool {
@@ -53,11 +65,18 @@ struct EditProjectView: View {
 
                 Section("Materials") {
                     TextField("Yarn", text: $yarn)
+                    Picker("Weight", selection: $yarnWeight) {
+                        Text("None").tag("")
+                        ForEach(weightOptions, id: \.self) { w in
+                            Text(w).tag(w)
+                        }
+                    }
                     TextField("Hook size", text: $hookSize)
                 }
 
                 Section {
                     Toggle("Share publicly", isOn: $isPublic)
+                    Toggle("Allow comments", isOn: $commentsEnabled)
                 }
 
                 if let errorMessage {
@@ -100,9 +119,11 @@ struct EditProjectView: View {
             description: trimmed(description),
             craftType: trimmed(craftType),
             yarn: trimmed(yarn),
+            yarnWeight: trimmed(yarnWeight),
             hookSize: trimmed(hookSize),
             status: nil,
             isPublic: isPublic,
+            commentsEnabled: commentsEnabled,
             coverPhotoId: coverPhotoId
         )
         Task {

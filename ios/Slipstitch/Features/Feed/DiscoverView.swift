@@ -11,7 +11,10 @@ struct DiscoverView: View {
             VStack(spacing: 0) {
                 searchBar
                 if model.isSearching {
-                    sourcePicker
+                    modePicker
+                    if model.searchMode == .makes {
+                        sourcePicker
+                    }
                 }
                 content
             }
@@ -60,6 +63,18 @@ struct DiscoverView: View {
         .padding(.bottom, StitchTheme.Spacing.sm)
     }
 
+    private var modePicker: some View {
+        Picker("Search for", selection: $model.searchMode) {
+            ForEach(DiscoverSearchMode.allCases) { mode in
+                Text(mode.label).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, StitchTheme.Spacing.md)
+        .padding(.bottom, StitchTheme.Spacing.sm)
+        .onChange(of: model.searchMode) { _, _ in model.sourceChanged() }
+    }
+
     private var sourcePicker: some View {
         Picker("Source", selection: $model.source) {
             ForEach(SearchSource.allCases) { source in
@@ -76,7 +91,9 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var content: some View {
-        if model.isInitialLoading {
+        if model.isSearching && model.searchMode == .people {
+            peopleResults
+        } else if model.isInitialLoading {
             loadingState
         } else if let error = model.errorMessage, model.cards.isEmpty {
             errorState(error)
@@ -84,6 +101,31 @@ struct DiscoverView: View {
             emptyState
         } else {
             grid
+        }
+    }
+
+    @ViewBuilder
+    private var peopleResults: some View {
+        if model.isInitialLoading {
+            loadingState
+        } else if let error = model.errorMessage, model.people.isEmpty {
+            errorState(error)
+        } else if model.people.isEmpty {
+            emptyState
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(model.people) { user in
+                        NavigationLink {
+                            UserProfileView(userId: user.id)
+                        } label: {
+                            UserRowView(user: user)
+                        }
+                        .buttonStyle(.plain)
+                        Divider().overlay(StitchTheme.Color.divider)
+                    }
+                }
+            }
         }
     }
 
@@ -220,11 +262,25 @@ struct DiscoverCard: Identifiable, Hashable {
 
 // MARK: - View model
 
+/// What the Discover search bar is looking for: makes/pins or people.
+enum DiscoverSearchMode: String, CaseIterable, Identifiable {
+    case makes, people
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .makes: return "Makes"
+        case .people: return "People"
+        }
+    }
+}
+
 @MainActor
 final class DiscoverModel: ObservableObject {
     @Published var query = ""
     @Published var source: SearchSource = .internalSource
+    @Published var searchMode: DiscoverSearchMode = .makes
 
+    @Published private(set) var people: [PublicUser] = []
     @Published private(set) var cards: [DiscoverCard] = []
     @Published private(set) var isInitialLoading = false
     @Published private(set) var isLoadingMore = false
@@ -255,6 +311,10 @@ final class DiscoverModel: ObservableObject {
     }
 
     private func loadFirstPage() async {
+        if isSearching && searchMode == .people {
+            await searchPeople()
+            return
+        }
         let token = bumpToken()
         isInitialLoading = cards.isEmpty
         errorMessage = nil
@@ -266,6 +326,22 @@ final class DiscoverModel: ObservableObject {
         } catch {
             guard token == requestToken else { return }
             if cards.isEmpty { errorMessage = error.localizedDescription }
+        }
+        isInitialLoading = false
+    }
+
+    private func searchPeople() async {
+        let token = bumpToken()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        isInitialLoading = people.isEmpty
+        errorMessage = nil
+        do {
+            let found = try await ProfileService().searchUsers(q: q)
+            guard token == requestToken else { return }
+            people = found
+        } catch {
+            guard token == requestToken else { return }
+            errorMessage = error.localizedDescription
         }
         isInitialLoading = false
     }

@@ -13,9 +13,11 @@ struct JournalService {
         var description: String?
         var craftType: String?
         var yarn: String?
+        var yarnWeight: String?
         var hookSize: String?
         var status: ProjectStatus?
         var isPublic: Bool?
+        var commentsEnabled: Bool?
         var coverPhotoId: String?
     }
 
@@ -34,13 +36,16 @@ struct JournalService {
         let description: String?
         let craftType: String?
         let yarn: String?
+        let yarnWeight: String?
         let hookSize: String?
         let status: ProjectStatus
         let isPublic: Bool
+        let commentsEnabled: Bool?
         let coverUrl: String?
         let likeCount: Int
         let liked: Bool
         let logCount: Int
+        let commentCount: Int?
         let createdAt: Date
         let updatedAt: Date
         let logs: [ProgressLog]?
@@ -48,9 +53,11 @@ struct JournalService {
 
         var asProject: Project {
             Project(id: id, owner: owner, title: title, description: description,
-                    craftType: craftType, yarn: yarn, hookSize: hookSize, status: status,
-                    isPublic: isPublic, coverUrl: coverUrl, likeCount: likeCount,
-                    liked: liked, logCount: logCount, createdAt: createdAt, updatedAt: updatedAt)
+                    craftType: craftType, yarn: yarn, yarnWeight: yarnWeight,
+                    hookSize: hookSize, status: status, isPublic: isPublic,
+                    commentsEnabled: commentsEnabled, coverUrl: coverUrl,
+                    likeCount: likeCount, liked: liked, logCount: logCount,
+                    commentCount: commentCount, createdAt: createdAt, updatedAt: updatedAt)
         }
     }
 
@@ -63,11 +70,13 @@ struct JournalService {
     }
 
     func create(title: String, description: String?, craftType: String?,
-                yarn: String?, hookSize: String?, status: ProjectStatus,
-                isPublic: Bool, coverPhotoId: String? = nil) async throws -> Project {
+                yarn: String?, yarnWeight: String?, hookSize: String?, status: ProjectStatus,
+                isPublic: Bool, commentsEnabled: Bool? = nil,
+                coverPhotoId: String? = nil) async throws -> Project {
         let body = ProjectInput(title: title, description: description, craftType: craftType,
-                                yarn: yarn, hookSize: hookSize, status: status,
-                                isPublic: isPublic, coverPhotoId: coverPhotoId)
+                                yarn: yarn, yarnWeight: yarnWeight, hookSize: hookSize,
+                                status: status, isPublic: isPublic,
+                                commentsEnabled: commentsEnabled, coverPhotoId: coverPhotoId)
         return try await client.send(.POST, "/projects", body: body)
     }
 

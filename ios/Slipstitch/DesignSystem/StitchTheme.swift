@@ -33,6 +33,10 @@ enum StitchTheme {
         static let surfaceAlt  = SwiftUI.Color.dynamic(light: 0xF4F0FB, dark: 0x261F36)
 
         static let textPrimary   = SwiftUI.Color.dynamic(light: 0x241B33, dark: 0xF3EFFA)
+        /// Ink for text sitting ON a fixed pastel chip/pill. The pastels don't
+        /// flip with the color scheme, so this must stay dark in dark mode too
+        /// (textPrimary goes near-white there and becomes illegible on pastel).
+        static let inkOnPastel   = SwiftUI.Color(hex: 0x241B33)
         static let textSecondary = SwiftUI.Color.dynamic(light: 0x8B82A0, dark: 0x9E94B4)
         static let divider       = SwiftUI.Color.dynamic(light: 0xECE7F4, dark: 0x2E2740)
 

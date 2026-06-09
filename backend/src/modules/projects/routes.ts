@@ -9,6 +9,7 @@ import {
   serializeProject,
   serializeProgressLog,
   serializePhoto,
+  serializeComment,
   type ProjectWithRelations,
 } from "./serialize.js";
 
@@ -21,10 +22,16 @@ const projectCreateSchema = z.object({
   description: z.string().max(5000).nullish(),
   craftType: z.string().max(100).nullish(),
   yarn: z.string().max(200).nullish(),
+  yarnWeight: z.string().max(50).nullish(),
   hookSize: z.string().max(50).nullish(),
   status: z.nativeEnum(ProjectStatus).optional(),
   isPublic: z.boolean().optional(),
+  commentsEnabled: z.boolean().optional(),
   coverPhotoId: z.string().nullish(),
+});
+
+const commentCreateSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
 });
 
 const projectUpdateSchema = projectCreateSchema.partial();
@@ -74,6 +81,16 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       await assertOwnedPhoto(body.coverPhotoId, viewerId);
     }
 
+    // Unless explicitly set, comments follow the account-level default.
+    let commentsEnabled = body.commentsEnabled;
+    if (commentsEnabled === undefined) {
+      const me = await prisma.user.findUnique({
+        where: { id: viewerId },
+        select: { defaultCommentsEnabled: true },
+      });
+      commentsEnabled = me?.defaultCommentsEnabled ?? true;
+    }
+
     const created = await prisma.project.create({
       data: {
         ownerId: viewerId,
@@ -81,9 +98,11 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
         description: body.description ?? null,
         craftType: body.craftType ?? null,
         yarn: body.yarn ?? null,
+        yarnWeight: body.yarnWeight ?? null,
         hookSize: body.hookSize ?? null,
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.isPublic !== undefined ? { isPublic: body.isPublic } : {}),
+        commentsEnabled,
         coverPhotoId: body.coverPhotoId ?? null,
       },
       include: projectInclude(viewerId),
@@ -134,9 +153,11 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
         ...(body.description !== undefined ? { description: body.description ?? null } : {}),
         ...(body.craftType !== undefined ? { craftType: body.craftType ?? null } : {}),
         ...(body.yarn !== undefined ? { yarn: body.yarn ?? null } : {}),
+        ...(body.yarnWeight !== undefined ? { yarnWeight: body.yarnWeight ?? null } : {}),
         ...(body.hookSize !== undefined ? { hookSize: body.hookSize ?? null } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.isPublic !== undefined ? { isPublic: body.isPublic } : {}),
+        ...(body.commentsEnabled !== undefined ? { commentsEnabled: body.commentsEnabled } : {}),
         ...(body.coverPhotoId !== undefined ? { coverPhotoId: body.coverPhotoId ?? null } : {}),
       },
       include: projectInclude(viewerId),
@@ -229,6 +250,83 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
     });
     const likeCount = await prisma.like.count({ where: { projectId: id } });
     return { liked: true, likeCount };
+  });
+
+  // GET /:id/comments — paginated, public unless private (owner only)
+  app.get("/:id/comments", { preHandler: app.optionalAuth }, async (req) => {
+    const viewerId = req.userId;
+    const { id } = parse(idParams, req.params);
+    const { cursor, limit } = parse(paginationQuery, req.query);
+
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: { id: true, isPublic: true, ownerId: true },
+    });
+    if (!project) throw notFound("Project not found");
+    if (!project.isPublic && project.ownerId !== viewerId) {
+      throw forbidden("This project is private");
+    }
+
+    const rows = await prisma.comment.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { author: { include: { avatarPhoto: true } } },
+    });
+    const page = buildPage(rows, limit);
+    return {
+      items: page.items.map(serializeComment),
+      nextCursor: page.nextCursor,
+    };
+  });
+
+  // POST /:id/comments — anyone who can see the project, when comments are on
+  app.post("/:id/comments", { preHandler: app.authenticate }, async (req, reply) => {
+    const viewerId = req.userId!;
+    const { id } = parse(idParams, req.params);
+    const body = parse(commentCreateSchema, req.body);
+
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: { id: true, isPublic: true, ownerId: true, commentsEnabled: true },
+    });
+    if (!project) throw notFound("Project not found");
+    if (!project.isPublic && project.ownerId !== viewerId) {
+      throw forbidden("This project is private");
+    }
+    if (!project.commentsEnabled) {
+      throw forbidden("Comments are turned off for this project", "comments_disabled");
+    }
+
+    const comment = await prisma.comment.create({
+      data: { projectId: id, authorId: viewerId, body: body.body },
+      include: { author: { include: { avatarPhoto: true } } },
+    });
+    reply.code(201);
+    return serializeComment(comment);
+  });
+
+  // DELETE /:id/comments/:commentId — comment author or project owner
+  app.delete("/:id/comments/:commentId", { preHandler: app.authenticate }, async (req, reply) => {
+    const viewerId = req.userId!;
+    const { id, commentId } = parse(
+      idParams.extend({ commentId: z.string().min(1) }),
+      req.params,
+    );
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, authorId: true, projectId: true, project: { select: { ownerId: true } } },
+    });
+    if (!comment || comment.projectId !== id) throw notFound("Comment not found");
+    if (comment.authorId !== viewerId && comment.project.ownerId !== viewerId) {
+      throw forbidden("You cannot delete this comment");
+    }
+
+    await prisma.comment.delete({ where: { id: commentId } });
+    reply.code(204);
+    return null;
   });
 
   // DELETE /:id/like  — idempotent unlike

@@ -50,7 +50,7 @@ struct StitchTag: View {
     var body: some View {
         Text(text)
             .font(StitchTheme.Font.caption)
-            .foregroundStyle(StitchTheme.Color.textPrimary)
+            .foregroundStyle(StitchTheme.Color.inkOnPastel)
             .padding(.horizontal, StitchTheme.Spacing.sm)
             .padding(.vertical, StitchTheme.Spacing.xs)
             .background(color)

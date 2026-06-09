@@ -48,6 +48,31 @@ struct FeedService {
         return try await client.send(.GET, "/search", query: query)
     }
 
+    // MARK: Projects
+
+    /// GET /projects/:id — full project (logs/photos in the payload are ignored
+    /// by the decoder; used to open a project from a compact reference).
+    func project(id: String) async throws -> Project {
+        try await client.send(.GET, "/projects/\(id)")
+    }
+
+    // MARK: Comments
+
+    func comments(projectId: String, cursor: String? = nil) async throws -> Page<Comment> {
+        var query: [String: String] = [:]
+        if let cursor { query["cursor"] = cursor }
+        return try await client.send(.GET, "/projects/\(projectId)/comments", query: query)
+    }
+
+    func addComment(projectId: String, body: String) async throws -> Comment {
+        struct Body: Encodable { let body: String }
+        return try await client.send(.POST, "/projects/\(projectId)/comments", body: Body(body: body))
+    }
+
+    func deleteComment(projectId: String, commentId: String) async throws {
+        try await client.sendVoid(.DELETE, "/projects/\(projectId)/comments/\(commentId)")
+    }
+
     // MARK: Likes
 
     @discardableResult

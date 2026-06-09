@@ -90,14 +90,16 @@ export function projectSelect(viewerId: string | undefined) {
     description: true,
     craftType: true,
     yarn: true,
+    yarnWeight: true,
     hookSize: true,
     status: true,
     isPublic: true,
+    commentsEnabled: true,
     createdAt: true,
     updatedAt: true,
     owner: { select: publicUserSelect },
     cover: { select: photoWithUrl },
-    _count: { select: { likes: true, logs: true } },
+    _count: { select: { likes: true, logs: true, comments: true } },
     likes: viewerId
       ? { where: { userId: viewerId }, select: { userId: true } }
       : { where: { userId: "__none__" }, select: { userId: true } },
@@ -113,13 +115,16 @@ export interface ProjectDTO {
   description: string | null;
   craftType: string | null;
   yarn: string | null;
+  yarnWeight: string | null;
   hookSize: string | null;
   status: string;
   isPublic: boolean;
+  commentsEnabled: boolean;
   coverUrl: string | null;
   likeCount: number;
   liked: boolean;
   logCount: number;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -135,13 +140,16 @@ export function serializeProject(
     description: project.description,
     craftType: project.craftType,
     yarn: project.yarn,
+    yarnWeight: project.yarnWeight,
     hookSize: project.hookSize,
     status: project.status,
     isPublic: project.isPublic,
+    commentsEnabled: project.commentsEnabled,
     coverUrl: project.cover ? publicUrl(project.cover.r2Key) : null,
     likeCount: project._count.likes,
     liked: viewerId ? project.likes.length > 0 : false,
     logCount: project._count.logs,
+    commentCount: project._count.comments,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
   };

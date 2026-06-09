@@ -34,6 +34,11 @@ struct ProfileView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        NavigationLink {
+                            SettingsView()
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
                         Button(role: .destructive) { session.signOut() } label: {
                             Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                         }
@@ -111,9 +116,23 @@ struct ProfileView: View {
             HStack {
                 stat(value: model.projectCountText, label: "Projects")
                 divider
-                stat(value: model.followerCountText, label: "Followers")
+                NavigationLink {
+                    if let id = session.currentUser?.id {
+                        UserListView(userId: id, mode: .followers)
+                    }
+                } label: {
+                    stat(value: model.followerCountText, label: "Followers")
+                }
+                .buttonStyle(.plain)
                 divider
-                stat(value: model.followingCountText, label: "Following")
+                NavigationLink {
+                    if let id = session.currentUser?.id {
+                        UserListView(userId: id, mode: .following)
+                    }
+                } label: {
+                    stat(value: model.followingCountText, label: "Following")
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, StitchTheme.Spacing.md)

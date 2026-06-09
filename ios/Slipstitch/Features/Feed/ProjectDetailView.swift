@@ -76,23 +76,34 @@ struct ProjectDetailView: View {
             chips
 
             actions
+
+            CommentsSection(project: initialProject)
+                .padding(.top, StitchTheme.Spacing.sm)
         }
         .padding(.horizontal, StitchTheme.Spacing.md)
     }
 
     private var ownerRow: some View {
-        HStack(spacing: StitchTheme.Spacing.sm) {
-            avatar
-            VStack(alignment: .leading, spacing: 0) {
-                Text(initialProject.owner.displayName)
-                    .font(StitchTheme.Font.headline)
-                    .foregroundStyle(StitchTheme.Color.textPrimary)
-                Text("@\(initialProject.owner.username)")
-                    .font(StitchTheme.Font.caption)
+        NavigationLink {
+            UserProfileView(userId: initialProject.owner.id)
+        } label: {
+            HStack(spacing: StitchTheme.Spacing.sm) {
+                avatar
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(initialProject.owner.displayName)
+                        .font(StitchTheme.Font.headline)
+                        .foregroundStyle(StitchTheme.Color.textPrimary)
+                    Text("@\(initialProject.owner.username)")
+                        .font(StitchTheme.Font.caption)
+                        .foregroundStyle(StitchTheme.Color.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
                     .foregroundStyle(StitchTheme.Color.textSecondary)
             }
-            Spacer()
         }
+        .buttonStyle(.plain)
     }
 
     private var avatar: some View {
@@ -129,6 +140,9 @@ struct ProjectDetailView: View {
         if let yarn = initialProject.yarn, !yarn.isEmpty {
             result.append(("🧶 \(yarn)", StitchTheme.Color.mint))
         }
+        if let weight = initialProject.yarnWeight, !weight.isEmpty {
+            result.append(("Weight \(weight)", StitchTheme.Color.lavender))
+        }
         if let hook = initialProject.hookSize, !hook.isEmpty {
             result.append(("Hook \(hook)", StitchTheme.Color.butter))
         }
@@ -157,7 +171,7 @@ struct ProjectDetailView: View {
                     Text("Save")
                 }
                 .font(StitchTheme.Font.headline)
-                .foregroundStyle(StitchTheme.Color.textPrimary)
+                .foregroundStyle(StitchTheme.Color.inkOnPastel)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(StitchTheme.Color.lavender.opacity(0.6))

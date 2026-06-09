@@ -5,14 +5,18 @@ struct NewProjectView: View {
     var onCreated: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var session: SessionStore
 
     @State private var title = ""
     @State private var description = ""
     @State private var craftType = ""
     @State private var yarn = ""
+    @State private var yarnWeight = ""
     @State private var hookSize = ""
     @State private var status: ProjectStatus = .planning
     @State private var isPublic = false
+    @State private var commentsEnabled = true
+    @State private var didSeedDefaults = false
     @State private var coverPhotoId: String?
 
     @State private var isSaving = false
@@ -42,6 +46,12 @@ struct NewProjectView: View {
 
                 Section("Materials") {
                     TextField("Yarn", text: $yarn)
+                    Picker("Weight", selection: $yarnWeight) {
+                        Text("None").tag("")
+                        ForEach(YarnWeight.options, id: \.self) { w in
+                            Text(w).tag(w)
+                        }
+                    }
                     TextField("Hook size", text: $hookSize)
                 }
 
@@ -52,6 +62,7 @@ struct NewProjectView: View {
                         }
                     }
                     Toggle("Share publicly", isOn: $isPublic)
+                    Toggle("Allow comments", isOn: $commentsEnabled)
                 }
 
                 if let errorMessage {
@@ -66,6 +77,13 @@ struct NewProjectView: View {
             .background(StitchTheme.Color.background)
             .navigationTitle("New project")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Seed the comments toggle from the account-level default once.
+                if !didSeedDefaults {
+                    didSeedDefaults = true
+                    commentsEnabled = session.currentUser?.defaultCommentsEnabled ?? true
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -96,9 +114,11 @@ struct NewProjectView: View {
                     description: trimmed(description),
                     craftType: trimmed(craftType),
                     yarn: trimmed(yarn),
+                    yarnWeight: trimmed(yarnWeight),
                     hookSize: trimmed(hookSize),
                     status: status,
                     isPublic: isPublic,
+                    commentsEnabled: commentsEnabled,
                     coverPhotoId: coverPhotoId
                 )
                 onCreated()

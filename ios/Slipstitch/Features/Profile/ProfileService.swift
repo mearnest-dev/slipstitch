@@ -34,6 +34,60 @@ struct ProfileService {
         )
     }
 
+    /// `PATCH /me` — account-level settings.
+    func updateSettings(defaultCommentsEnabled: Bool? = nil,
+                        notificationsEnabled: Bool? = nil) async throws -> User {
+        struct Body: Encodable {
+            let defaultCommentsEnabled: Bool?
+            let notificationsEnabled: Bool?
+        }
+        return try await APIClient.shared.send(
+            .PATCH, "/me",
+            body: Body(defaultCommentsEnabled: defaultCommentsEnabled,
+                       notificationsEnabled: notificationsEnabled)
+        )
+    }
+
+    /// `DELETE /me` — permanently delete the signed-in account.
+    func deleteAccount() async throws {
+        try await APIClient.shared.sendVoid(.DELETE, "/me")
+    }
+
+    /// `GET /users/search?q=` — find people by username or display name.
+    func searchUsers(q: String) async throws -> [PublicUser] {
+        struct Envelope: Decodable { let items: [PublicUser] }
+        let envelope: Envelope = try await APIClient.shared.send(
+            .GET, "/users/search", query: ["q": q]
+        )
+        return envelope.items
+    }
+
+    /// `POST /users/:id/follow`
+    func follow(userId: String) async throws {
+        struct R: Decodable { let following: Bool }
+        let _: R = try await APIClient.shared.send(.POST, "/users/\(userId)/follow")
+    }
+
+    /// `DELETE /users/:id/follow`
+    func unfollow(userId: String) async throws {
+        struct R: Decodable { let following: Bool }
+        let _: R = try await APIClient.shared.send(.DELETE, "/users/\(userId)/follow")
+    }
+
+    /// `GET /users/:id/followers`
+    func followers(of userId: String, cursor: String? = nil) async throws -> Page<PublicUser> {
+        var query: [String: String] = [:]
+        if let cursor { query["cursor"] = cursor }
+        return try await APIClient.shared.send(.GET, "/users/\(userId)/followers", query: query)
+    }
+
+    /// `GET /users/:id/following`
+    func following(of userId: String, cursor: String? = nil) async throws -> Page<PublicUser> {
+        var query: [String: String] = [:]
+        if let cursor { query["cursor"] = cursor }
+        return try await APIClient.shared.send(.GET, "/users/\(userId)/following", query: query)
+    }
+
     /// `GET /users/:id/projects` — the user's own projects, paginated.
     func projects(for userId: String, cursor: String? = nil) async throws -> Page<Project> {
         var query: [String: String] = [:]

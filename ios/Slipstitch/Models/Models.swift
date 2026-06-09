@@ -22,6 +22,9 @@ struct User: Codable, Identifiable, Hashable {
     let email: String?
     let bio: String?
     let avatarUrl: String?
+    /// Account-level default for `Project.commentsEnabled` on new projects.
+    let defaultCommentsEnabled: Bool?
+    let notificationsEnabled: Bool?
     let createdAt: Date?
 }
 
@@ -44,15 +47,35 @@ struct Project: Codable, Identifiable, Hashable {
     let description: String?
     let craftType: String?
     let yarn: String?
+    let yarnWeight: String?
     let hookSize: String?
     let status: ProjectStatus
     let isPublic: Bool
+    let commentsEnabled: Bool?
     let coverUrl: String?
     let likeCount: Int
     let liked: Bool
     let logCount: Int
+    let commentCount: Int?
     let createdAt: Date
     let updatedAt: Date
+}
+
+struct Comment: Codable, Identifiable, Hashable {
+    let id: String
+    let projectId: String
+    let author: PublicUser
+    let body: String
+    let createdAt: Date
+}
+
+/// The standard CYC yarn weight categories, offered as picker options.
+/// Stored server-side as a plain string so custom values stay possible.
+enum YarnWeight {
+    static let options = [
+        "Lace (0)", "Super Fine (1)", "Fine (2)", "Light (3)",
+        "Medium (4)", "Bulky (5)", "Super Bulky (6)", "Jumbo (7)",
+    ]
 }
 
 struct ProgressLog: Codable, Identifiable, Hashable {

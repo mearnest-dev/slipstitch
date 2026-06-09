@@ -30,10 +30,14 @@ Access token TTL 15m, refresh token TTL 30d (rotating).
 | Method | Path | Returns |
 |---|---|---|
 | GET | `/me` | `User` (self, includes email) |
-| PATCH | `/me` | `User` — body `{ displayName?, bio?, avatarPhotoId? }` |
+| PATCH | `/me` | `User` — body `{ displayName?, bio?, avatarPhotoId?, defaultCommentsEnabled?, notificationsEnabled? }` |
+| DELETE | `/me` | `204` — permanently deletes the account (cascades projects/photos/comments/follows/collections) |
+| GET | `/users/search` | `{ items: PublicUser[] }` — query `q` (username/displayName, case-insensitive), `limit` |
 | GET | `/users/:id` | `PublicUser` (+ `isFollowing`, counts) |
 | POST | `/users/:id/follow` | `{ following: true }` |
 | DELETE | `/users/:id/follow` | `{ following: false }` |
+| GET | `/users/:id/followers` | paginated `PublicUser[]` (cursor = last user id) |
+| GET | `/users/:id/following` | paginated `PublicUser[]` (cursor = last user id) |
 | GET | `/users/:id/projects` | paginated `Project[]` (public only unless self) |
 
 ## Projects (journal subjects) — `/projects`
@@ -51,12 +55,17 @@ A Project is a crochet make you journal about. It has progress logs and photos.
 | GET | `/projects/:id/logs` | — | paginated `ProgressLog[]` |
 | POST | `/projects/:id/like` | — | `{ liked: true, likeCount }` |
 | DELETE | `/projects/:id/like` | — | `{ liked: false, likeCount }` |
+| GET | `/projects/:id/comments` | — | paginated `Comment[]` (newest first) |
+| POST | `/projects/:id/comments` | `{ body }` | `Comment` — `403 comments_disabled` when the project has comments off |
+| DELETE | `/projects/:id/comments/:commentId` | — | `204` (comment author or project owner) |
 
 ```
-ProjectInput   = { title, description?, craftType?, yarn?, hookSize?, status?, isPublic?, coverPhotoId? }
+ProjectInput   = { title, description?, craftType?, yarn?, yarnWeight?, hookSize?, status?, isPublic?, commentsEnabled?, coverPhotoId? }
 ProgressLogInput = { note?, photoId?, rowCount?, hoursSpent? }
 status ∈ "planning" | "inProgress" | "finished" | "frogged"
 ```
+
+`commentsEnabled` defaults to the owner's account-level `defaultCommentsEnabled` when omitted on create.
 
 ## Collections — `/collections`
 
@@ -101,10 +110,12 @@ Direct-to-R2 presigned uploads. Client requests a URL, PUTs the bytes to R2, the
 ## DTO shapes (mirror Prisma, see prisma/schema.prisma)
 
 ```
-User       = { id, username, displayName, email, bio, avatarUrl, createdAt }
+User       = { id, username, displayName, email, bio, avatarUrl,
+               defaultCommentsEnabled, notificationsEnabled, createdAt }
 PublicUser = { id, username, displayName, bio, avatarUrl, projectCount, followerCount, followingCount, isFollowing }
-Project    = { id, owner: PublicUser, title, description, craftType, yarn, hookSize, status,
-               isPublic, coverUrl, likeCount, liked, logCount, createdAt, updatedAt }
+Project    = { id, owner: PublicUser, title, description, craftType, yarn, yarnWeight, hookSize, status,
+               isPublic, commentsEnabled, coverUrl, likeCount, liked, logCount, commentCount, createdAt, updatedAt }
+Comment    = { id, projectId, author: PublicUser, body, createdAt }
 ProgressLog = { id, projectId, note, photo?: Photo, rowCount, hoursSpent, createdAt }
 Collection = { id, name, description, isPublic, coverUrl, itemCount, createdAt }
 CollectionItem = { id, kind: "project" | "pin", project?: Project, pin?: ExternalPin, createdAt }

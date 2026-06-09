@@ -10,6 +10,8 @@ export interface UserDTO {
   email: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  defaultCommentsEnabled: boolean;
+  notificationsEnabled: boolean;
   createdAt: string;
 }
 
@@ -32,13 +34,16 @@ export interface ProjectDTO {
   description: string | null;
   craftType: string | null;
   yarn: string | null;
+  yarnWeight: string | null;
   hookSize: string | null;
   status: ProjectStatus;
   isPublic: boolean;
+  commentsEnabled: boolean;
   coverUrl: string | null;
   likeCount: number;
   liked: boolean;
   logCount: number;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,6 +63,8 @@ export function serializeUser(user: User & { avatarPhoto?: Photo | null }): User
     email: user.email,
     bio: user.bio,
     avatarUrl: photoUrl(user.avatarPhoto),
+    defaultCommentsEnabled: user.defaultCommentsEnabled,
+    notificationsEnabled: user.notificationsEnabled,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -89,7 +96,7 @@ export function serializePublicUser(
 export type ProjectWithRelations = Project & {
   owner: User & { avatarPhoto?: Photo | null };
   cover?: Photo | null;
-  _count?: { likes?: number; logs?: number };
+  _count?: { likes?: number; logs?: number; comments?: number };
 };
 
 export function serializeProject(
@@ -104,13 +111,16 @@ export function serializeProject(
     description: project.description,
     craftType: project.craftType,
     yarn: project.yarn,
+    yarnWeight: project.yarnWeight,
     hookSize: project.hookSize,
     status: project.status,
     isPublic: project.isPublic,
+    commentsEnabled: project.commentsEnabled,
     coverUrl: photoUrl(project.cover),
     likeCount: project._count?.likes ?? 0,
     liked: opts.liked,
     logCount: project._count?.logs ?? 0,
+    commentCount: project._count?.comments ?? 0,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
   };

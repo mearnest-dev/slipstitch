@@ -163,6 +163,7 @@ struct JournalProjectDetailView: View {
         var chips: [String] = []
         if let craft = project.craftType, !craft.isEmpty { chips.append(craft) }
         if let yarn = project.yarn, !yarn.isEmpty { chips.append("🧶 \(yarn)") }
+        if let weight = project.yarnWeight, !weight.isEmpty { chips.append("Weight \(weight)") }
         if let hook = project.hookSize, !hook.isEmpty { chips.append("Hook \(hook)") }
         return chips
     }
@@ -223,7 +224,9 @@ private struct FlowChips: View {
     var body: some View {
         // iOS 17 has no native flow layout, so use a simple wrapping approach.
         WrapHStack(items: chips) { chip in
-            StitchTag(text: chip, color: StitchTheme.Color.surfaceAlt)
+            // Fixed pastel, not surfaceAlt: StitchTag ink stays dark in dark
+            // mode, so its background must stay light.
+            StitchTag(text: chip, color: StitchTheme.Color.pastel(for: chip))
         }
     }
 }

@@ -101,8 +101,19 @@ struct CollectionDetailView: View {
                 } else {
                     LazyVGrid(columns: columns, spacing: StitchTheme.Spacing.md) {
                         ForEach(model.items) { item in
-                            CollectionItemCardView(item: item) {
-                                Task { await model.remove(item: item) }
+                            if let project = item.project {
+                                NavigationLink {
+                                    ProjectLoaderView(projectId: project.id)
+                                } label: {
+                                    CollectionItemCardView(item: item) {
+                                        Task { await model.remove(item: item) }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                CollectionItemCardView(item: item) {
+                                    Task { await model.remove(item: item) }
+                                }
                             }
                         }
                     }
