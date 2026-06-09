@@ -189,9 +189,25 @@ struct JournalProjectDetailView: View {
                     .foregroundStyle(StitchTheme.Color.textSecondary)
                     .padding(.horizontal, StitchTheme.Spacing.md)
             } else {
-                VStack(spacing: StitchTheme.Spacing.md) {
-                    ForEach(model.logs) { log in
-                        ProgressLogCard(log: log)
+                // Entries threaded together by a strand of yarn down the left.
+                VStack(spacing: 0) {
+                    ForEach(Array(model.logs.enumerated()), id: \.element.id) { index, log in
+                        HStack(alignment: .top, spacing: StitchTheme.Spacing.sm) {
+                            YarnStrandGutter(
+                                isFirst: index == 0,
+                                isLast: index == model.logs.count - 1
+                            )
+                            .frame(width: 22)
+
+                            NavigationLink {
+                                ProgressLogDetailView(log: log, projectTitle: model.project?.title)
+                            } label: {
+                                ProgressLogCard(log: log)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.bottom, index == model.logs.count - 1 ? 0 : StitchTheme.Spacing.md)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(.horizontal, StitchTheme.Spacing.md)
@@ -215,6 +231,74 @@ struct JournalProjectDetailView: View {
         }
         .padding(StitchTheme.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Yarn strand timeline
+
+/// The gutter beside each progress entry: a stitch dot aligned with the card's
+/// top, threaded onto a gently wavy strand of yarn that runs the full column.
+/// The strand starts at the first entry's dot and ends at the last one's.
+private struct YarnStrandGutter: View {
+    let isFirst: Bool
+    let isLast: Bool
+
+    /// Vertical center of the stitch dot, roughly aligned with the card's
+    /// first line of content.
+    private let dotY: CGFloat = 26
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            YarnStrandShape(isFirst: isFirst, isLast: isLast, dotY: dotY)
+                .stroke(
+                    StitchTheme.Color.brand.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+
+            // A tiny "stitch" knot where the entry hangs off the strand.
+            Circle()
+                .fill(StitchTheme.Color.brand)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().stroke(StitchTheme.Color.brand100, lineWidth: 2))
+                .offset(y: dotY - 4.5)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// A vertical strand with a soft sine-wave wobble, so it reads as yarn rather
+/// than a ruler line.
+private struct YarnStrandShape: Shape {
+    let isFirst: Bool
+    let isLast: Bool
+    let dotY: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let startY = isFirst ? dotY : rect.minY
+        let endY = isLast ? dotY : rect.maxY
+        guard endY > startY else { return path }
+
+        let amplitude: CGFloat = 2.5
+        let wavelength: CGFloat = 34
+        let step: CGFloat = 3
+
+        // Taper the wobble to zero at both ends so consecutive entries' strand
+        // segments (each drawn in its own row) join up without a visible kink.
+        func x(at y: CGFloat) -> CGFloat {
+            let t = (y - startY) / (endY - startY)
+            let envelope = sin(t * .pi)
+            return rect.midX + amplitude * envelope * sin((y / wavelength) * 2 * .pi)
+        }
+
+        path.move(to: CGPoint(x: x(at: startY), y: startY))
+        var y = startY + step
+        while y < endY {
+            path.addLine(to: CGPoint(x: x(at: y), y: y))
+            y += step
+        }
+        path.addLine(to: CGPoint(x: x(at: endY), y: endY))
+        return path
     }
 }
 

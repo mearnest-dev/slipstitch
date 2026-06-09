@@ -51,6 +51,9 @@ struct ProgressLogCard: View {
                     .font(StitchTheme.Font.caption)
                     .foregroundStyle(StitchTheme.Color.textSecondary)
             }
+            // Fill the row even when there's no photo (text-only entries used
+            // to hug their content and render as narrow cards).
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
