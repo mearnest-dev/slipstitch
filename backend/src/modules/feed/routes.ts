@@ -38,6 +38,41 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
       const parsed = parseCursor(cursor);
       const wantExternal = env.EXTERNAL_SEARCH_ENABLED && ravelryConfigured();
 
+      // Personalization: the viewer's onboarding interests steer the feed.
+      let interests: string[] = [];
+      if (viewerId) {
+        const me = await prisma.user.findUnique({
+          where: { id: viewerId },
+          select: { interests: true },
+        });
+        interests = me?.interests ?? [];
+      }
+
+      // On the first page, surface recent public projects matching the
+      // viewer's interests ahead of the plain recency stream. (Pagination
+      // stays on the recency stream; the client dedupes by id.)
+      let boosted: SearchResultDTO[] = [];
+      if (!cursor && interests.length > 0) {
+        const matches = await prisma.project.findMany({
+          where: {
+            isPublic: true,
+            ...(viewerId ? { ownerId: { not: viewerId } } : {}),
+            OR: interests.flatMap((term) => [
+              { title: { contains: term, mode: "insensitive" as const } },
+              { craftType: { contains: term, mode: "insensitive" as const } },
+              { description: { contains: term, mode: "insensitive" as const } },
+            ]),
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: Math.ceil(limit / 2),
+          select: projectSelect(viewerId),
+        });
+        boosted = matches.map((p) => ({
+          kind: "project" as const,
+          project: serializeProject(p, { viewerId }),
+        }));
+      }
+
       // internal: public projects, newest first
       const rows = await prisma.project.findMany({
         where: { isPublic: true },
@@ -63,7 +98,7 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
         const page = parsed.externalPage ?? 1;
         try {
           const { items: found, hasMore } = await searchRavelryPatterns(
-            feedRavelryTerm(),
+            feedRavelryTerm(interests),
             page,
             limit,
           );
@@ -75,9 +110,17 @@ export const feedRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      const items = wantExternal
-        ? interleave(internal, external).slice(0, limit)
-        : internal.slice(0, limit);
+      // Boosted interest matches lead; dedupe them out of the recency stream.
+      const boostedIds = new Set(
+        boosted.map((b) => (b.kind === "project" ? b.project.id : "")),
+      );
+      const rest = internal.filter(
+        (r) => r.kind !== "project" || !boostedIds.has(r.project.id),
+      );
+      const items = [
+        ...boosted,
+        ...(wantExternal ? interleave(rest, external) : rest),
+      ].slice(0, limit);
       const nextCursor = internalNext ?? externalNext;
       return { items, nextCursor };
     },
@@ -194,7 +237,8 @@ function upsertRavelryPins(pins: RavelryPin[]) {
 }
 
 // Popular crochet terms for the default feed's external slice — rotated by the
-// hour so the discovery feed stays fresh without per-request randomness.
+// hour so the discovery feed stays fresh without per-request randomness. When
+// the viewer picked interests in onboarding, rotate through those instead.
 const FEED_TERMS = [
   "amigurumi",
   "granny square",
@@ -205,8 +249,9 @@ const FEED_TERMS = [
   "crochet shawl",
   "crochet top",
 ];
-function feedRavelryTerm(): string {
-  return FEED_TERMS[new Date().getUTCHours() % FEED_TERMS.length]!;
+function feedRavelryTerm(interests: string[] = []): string {
+  const terms = interests.length > 0 ? interests : FEED_TERMS;
+  return terms[new Date().getUTCHours() % terms.length]!;
 }
 
 // Round-robin merge of two result streams so "both" alternates sources.

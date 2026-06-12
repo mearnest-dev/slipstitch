@@ -22,6 +22,11 @@ const patchMeSchema = z.object({
   notificationsEnabled: z.boolean().optional(),
 });
 
+const onboardingSchema = z.object({
+  interests: z.array(z.string().trim().min(1).max(40)).max(24).default([]),
+  planningToMake: z.array(z.string().trim().min(1).max(120)).max(12).default([]),
+});
+
 const userSearchQuery = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -70,6 +75,33 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
     const user = await prisma.user.update({
       where: { id: req.userId! },
       data,
+      include: { avatarPhoto: true },
+    });
+    return serializeUser(user);
+  });
+
+  // POST /me/onboarding — store the signup survey. Saves interests, seeds the
+  // journal with a `planning` project per planned make, and marks onboarding
+  // complete (idempotent: re-running never duplicates planned projects).
+  app.post("/me/onboarding", { preHandler: app.authenticate }, async (req) => {
+    const viewerId = req.userId!;
+    const body = parse(onboardingSchema, req.body);
+
+    for (const title of body.planningToMake ?? []) {
+      const existing = await prisma.project.findFirst({
+        where: { ownerId: viewerId, title },
+        select: { id: true },
+      });
+      if (!existing) {
+        await prisma.project.create({
+          data: { ownerId: viewerId, title, status: "planning" },
+        });
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: viewerId },
+      data: { interests: body.interests ?? [], onboardingCompleted: true },
       include: { avatarPhoto: true },
     });
     return serializeUser(user);

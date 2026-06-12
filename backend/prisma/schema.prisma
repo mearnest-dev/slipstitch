@@ -32,6 +32,9 @@ model User {
   // Account-level defaults/preferences (Settings screen)
   defaultCommentsEnabled Boolean @default(true)
   notificationsEnabled   Boolean @default(false)
+  // Onboarding survey: what the user wants to see; flips when survey is done/skipped.
+  interests              String[] @default([])
+  onboardingCompleted    Boolean  @default(false)
   avatarPhoto  Photo?   @relation("UserAvatar", fields: [avatarPhotoId], references: [id])
   avatarPhotoId String? @unique
   createdAt    DateTime @default(now())

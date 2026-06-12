@@ -48,6 +48,19 @@ struct ProfileService {
         )
     }
 
+    /// `POST /me/onboarding` — submit (or skip, with empty arrays) the signup
+    /// survey. Returns the updated user with `onboardingCompleted = true`.
+    func completeOnboarding(interests: [String], planningToMake: [String]) async throws -> User {
+        struct Body: Encodable {
+            let interests: [String]
+            let planningToMake: [String]
+        }
+        return try await APIClient.shared.send(
+            .POST, "/me/onboarding",
+            body: Body(interests: interests, planningToMake: planningToMake)
+        )
+    }
+
     /// `DELETE /me` — permanently delete the signed-in account.
     func deleteAccount() async throws {
         try await APIClient.shared.sendVoid(.DELETE, "/me")

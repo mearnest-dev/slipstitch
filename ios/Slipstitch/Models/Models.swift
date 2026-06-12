@@ -25,6 +25,10 @@ struct User: Codable, Identifiable, Hashable {
     /// Account-level default for `Project.commentsEnabled` on new projects.
     let defaultCommentsEnabled: Bool?
     let notificationsEnabled: Bool?
+    /// Onboarding survey: what the user wants to see in their feed.
+    let interests: [String]?
+    /// False until the signup survey is completed or skipped.
+    let onboardingCompleted: Bool?
     let createdAt: Date?
 }
 

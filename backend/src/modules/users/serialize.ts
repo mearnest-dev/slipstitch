@@ -12,6 +12,8 @@ export interface UserDTO {
   avatarUrl: string | null;
   defaultCommentsEnabled: boolean;
   notificationsEnabled: boolean;
+  interests: string[];
+  onboardingCompleted: boolean;
   createdAt: string;
 }
 
@@ -65,6 +67,8 @@ export function serializeUser(user: User & { avatarPhoto?: Photo | null }): User
     avatarUrl: photoUrl(user.avatarPhoto),
     defaultCommentsEnabled: user.defaultCommentsEnabled,
     notificationsEnabled: user.notificationsEnabled,
+    interests: user.interests,
+    onboardingCompleted: user.onboardingCompleted,
     createdAt: user.createdAt.toISOString(),
   };
 }

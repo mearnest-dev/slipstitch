@@ -15,7 +15,13 @@ struct RootView: View {
             case .signedOut:
                 AuthFlowView()
             case .signedIn:
-                MainTabView()
+                // New accounts answer the survey first (server flag, so it
+                // survives reinstalls and never re-asks once done/skipped).
+                if session.currentUser?.onboardingCompleted == false {
+                    OnboardingSurveyView()
+                } else {
+                    MainTabView()
+                }
             }
         }
         .task { await session.restore() }

@@ -32,6 +32,7 @@ Access token TTL 15m, refresh token TTL 30d (rotating).
 | GET | `/me` | `User` (self, includes email) |
 | PATCH | `/me` | `User` — body `{ displayName?, bio?, avatarPhotoId?, defaultCommentsEnabled?, notificationsEnabled? }` |
 | DELETE | `/me` | `204` — permanently deletes the account (cascades projects/photos/comments/follows/collections) |
+| POST | `/me/onboarding` | `User` — body `{ interests?: string[], planningToMake?: string[] }`; stores interests, creates a `planning` project per planned make (idempotent by title), sets `onboardingCompleted` |
 | GET | `/users/search` | `{ items: PublicUser[] }` — query `q` (username/displayName, case-insensitive), `limit` |
 | GET | `/users/:id` | `PublicUser` (+ `isFollowing`, counts) |
 | POST | `/users/:id/follow` | `{ following: true }` |
@@ -85,7 +86,7 @@ A Collection is a saved board. Items can be internal projects or external pins.
 
 | Method | Path | Query | Returns |
 |---|---|---|---|
-| GET | `/feed` | `cursor,limit` | paginated `FeedItem[]` — public projects, ranked recency+likes |
+| GET | `/feed` | `cursor,limit` | paginated `SearchResult[]` — recency stream; the first page leads with projects matching the viewer's onboarding interests, and the Ravelry slice searches those interests |
 | GET | `/search` | `q, source, cursor, limit` | paginated `SearchResult[]` |
 
 `source ∈ "internal" | "external" | "both"` (default `internal`).
@@ -111,7 +112,8 @@ Direct-to-R2 presigned uploads. Client requests a URL, PUTs the bytes to R2, the
 
 ```
 User       = { id, username, displayName, email, bio, avatarUrl,
-               defaultCommentsEnabled, notificationsEnabled, createdAt }
+               defaultCommentsEnabled, notificationsEnabled,
+               interests: string[], onboardingCompleted, createdAt }
 PublicUser = { id, username, displayName, bio, avatarUrl, projectCount, followerCount, followingCount, isFollowing }
 Project    = { id, owner: PublicUser, title, description, craftType, yarn, yarnWeight, hookSize, status,
                isPublic, commentsEnabled, coverUrl, likeCount, liked, logCount, commentCount, createdAt, updatedAt }
