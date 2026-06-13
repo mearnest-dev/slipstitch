@@ -35,6 +35,9 @@ model User {
   // Onboarding survey: what the user wants to see; flips when survey is done/skipped.
   interests              String[] @default([])
   onboardingCompleted    Boolean  @default(false)
+  // Profile extras
+  socialLinks            String[] @default([]) // up to ~5 URLs shown on the profile
+  activityVisible        Boolean  @default(true) // show the Activity tab to others
   avatarPhoto  Photo?   @relation("UserAvatar", fields: [avatarPhotoId], references: [id])
   avatarPhotoId String? @unique
   createdAt    DateTime @default(now())
@@ -45,6 +48,7 @@ model User {
   photos       Photo[]        @relation("PhotoOwner")
   likes        Like[]
   comments     Comment[]
+  commentLikes CommentLike[]
   refreshTokens RefreshToken[]
   following    Follow[]       @relation("Follower")
   followers    Follow[]       @relation("Following")
@@ -189,9 +193,26 @@ model Comment {
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId  String
   body      String
+  // One-level threading: replies point at a top-level comment.
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId  String?
+  replies   Comment[] @relation("CommentReplies")
+  likes     CommentLike[]
   createdAt DateTime @default(now())
 
   @@index([projectId, createdAt])
+  @@index([parentId])
+}
+
+model CommentLike {
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String
+  createdAt DateTime @default(now())
+
+  @@id([userId, commentId])
+  @@index([commentId])
 }
 
 model Follow {

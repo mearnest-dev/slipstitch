@@ -30,7 +30,7 @@ Access token TTL 15m, refresh token TTL 30d (rotating).
 | Method | Path | Returns |
 |---|---|---|
 | GET | `/me` | `User` (self, includes email) |
-| PATCH | `/me` | `User` — body `{ displayName?, bio?, avatarPhotoId?, defaultCommentsEnabled?, notificationsEnabled? }` |
+| PATCH | `/me` | `User` — body `{ displayName?, bio?, avatarPhotoId?, defaultCommentsEnabled?, notificationsEnabled?, socialLinks?: url[] (max 5), activityVisible? }` |
 | DELETE | `/me` | `204` — permanently deletes the account (cascades projects/photos/comments/follows/collections) |
 | POST | `/me/onboarding` | `User` — body `{ interests?: string[], planningToMake?: string[] }`; stores interests, creates a `planning` project per planned make (idempotent by title), sets `onboardingCompleted` |
 | GET | `/users/search` | `{ items: PublicUser[] }` — query `q` (username/displayName, case-insensitive), `limit` |
@@ -40,6 +40,7 @@ Access token TTL 15m, refresh token TTL 30d (rotating).
 | GET | `/users/:id/followers` | paginated `PublicUser[]` (cursor = last user id) |
 | GET | `/users/:id/following` | paginated `PublicUser[]` (cursor = last user id) |
 | GET | `/users/:id/projects` | paginated `Project[]` (public only unless self) |
+| GET | `/users/:id/activity` | paginated activity events, newest first; query `before=<ISO>` cursor. `403 activity_hidden` when the user hides activity (self always allowed). Item: `{ type: "project"\|"progress"\|"comment"\|"like"\|"follow", createdAt, project?: {id,title,coverUrl}, user?: {id,username,displayName,avatarUrl}, body? }` |
 
 ## Projects (journal subjects) — `/projects`
 
@@ -56,9 +57,11 @@ A Project is a crochet make you journal about. It has progress logs and photos.
 | GET | `/projects/:id/logs` | — | paginated `ProgressLog[]` |
 | POST | `/projects/:id/like` | — | `{ liked: true, likeCount }` |
 | DELETE | `/projects/:id/like` | — | `{ liked: false, likeCount }` |
-| GET | `/projects/:id/comments` | — | paginated `Comment[]` (newest first) |
-| POST | `/projects/:id/comments` | `{ body }` | `Comment` — `403 comments_disabled` when the project has comments off |
-| DELETE | `/projects/:id/comments/:commentId` | — | `204` (comment author or project owner) |
+| GET | `/projects/:id/comments` | — | paginated top-level `Comment[]` (newest first), each with `replies` (oldest first) |
+| POST | `/projects/:id/comments` | `{ body, parentCommentId? }` | `Comment` — replies are one level deep (replying to a reply attaches to its parent); `403 comments_disabled` when the project has comments off |
+| DELETE | `/projects/:id/comments/:commentId` | — | `204` (comment author or project owner; deleting a parent removes its replies) |
+| POST | `/projects/:id/comments/:commentId/like` | — | `{ liked: true, likeCount }` |
+| DELETE | `/projects/:id/comments/:commentId/like` | — | `{ liked: false, likeCount }` |
 
 ```
 ProjectInput   = { title, description?, craftType?, yarn?, yarnWeight?, hookSize?, status?, isPublic?, commentsEnabled?, coverPhotoId? }
@@ -113,11 +116,12 @@ Direct-to-R2 presigned uploads. Client requests a URL, PUTs the bytes to R2, the
 ```
 User       = { id, username, displayName, email, bio, avatarUrl,
                defaultCommentsEnabled, notificationsEnabled,
-               interests: string[], onboardingCompleted, createdAt }
-PublicUser = { id, username, displayName, bio, avatarUrl, projectCount, followerCount, followingCount, isFollowing }
+               interests: string[], onboardingCompleted, socialLinks: string[], activityVisible, createdAt }
+PublicUser = { id, username, displayName, bio, avatarUrl, socialLinks: string[], activityVisible,
+               projectCount, followerCount, followingCount, isFollowing }
 Project    = { id, owner: PublicUser, title, description, craftType, yarn, yarnWeight, hookSize, status,
                isPublic, commentsEnabled, coverUrl, likeCount, liked, logCount, commentCount, createdAt, updatedAt }
-Comment    = { id, projectId, author: PublicUser, body, createdAt }
+Comment    = { id, projectId, parentId, author: PublicUser, body, likeCount, liked, replies?: Comment[], createdAt }
 ProgressLog = { id, projectId, note, photo?: Photo, rowCount, hoursSpent, createdAt }
 Collection = { id, name, description, isPublic, coverUrl, itemCount, createdAt }
 CollectionItem = { id, kind: "project" | "pin", project?: Project, pin?: ExternalPin, createdAt }

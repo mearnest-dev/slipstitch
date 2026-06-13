@@ -12,6 +12,7 @@ struct EditProfileView: View {
 
     @State private var displayName: String
     @State private var bio: String
+    @State private var links: [String]
 
     // Avatar picking / upload state.
     @State private var pickerItem: PhotosPickerItem?
@@ -25,6 +26,7 @@ struct EditProfileView: View {
     init(user: User) {
         _displayName = State(initialValue: user.displayName)
         _bio = State(initialValue: user.bio ?? "")
+        _links = State(initialValue: user.socialLinks ?? [])
     }
 
     var body: some View {
@@ -131,6 +133,35 @@ struct EditProfileView: View {
                 .padding(StitchTheme.Spacing.md)
                 .background(StitchTheme.Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
+
+            fieldLabel("Links (Instagram, Ravelry, shop…)")
+            ForEach(links.indices, id: \.self) { index in
+                HStack(spacing: StitchTheme.Spacing.sm) {
+                    TextField("https://…", text: $links[index])
+                        .font(StitchTheme.Font.body)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(StitchTheme.Spacing.md)
+                        .background(StitchTheme.Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
+                    Button {
+                        links.remove(at: index)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(StitchTheme.Color.textSecondary)
+                    }
+                }
+            }
+            if links.count < 5 {
+                Button {
+                    links.append("")
+                } label: {
+                    Label("Add link", systemImage: "plus.circle")
+                        .font(StitchTheme.Font.caption)
+                        .foregroundStyle(StitchTheme.Color.accent)
+                }
+            }
         }
     }
 
@@ -181,12 +212,19 @@ struct EditProfileView: View {
         // Only send changed fields.
         let nameChanged = trimmedName != current.displayName
         let bioChanged = trimmedBio != (current.bio ?? "")
+        // Normalize links: trim, drop empties, prepend https:// when missing.
+        let cleanedLinks = links
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { $0.contains("://") ? $0 : "https://\($0)" }
+        let linksChanged = cleanedLinks != (current.socialLinks ?? [])
 
         do {
             let updated = try await service.updateProfile(
                 displayName: nameChanged ? trimmedName : nil,
                 bio: bioChanged ? trimmedBio : nil,
-                avatarPhotoId: uploadedPhotoId
+                avatarPhotoId: uploadedPhotoId,
+                socialLinks: linksChanged ? cleanedLinks : nil
             )
             session.updateUser(updated)
             dismiss()

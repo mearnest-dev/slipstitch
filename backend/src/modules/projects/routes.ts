@@ -10,6 +10,7 @@ import {
   serializeProgressLog,
   serializePhoto,
   serializeComment,
+  commentInclude,
   type ProjectWithRelations,
 } from "./serialize.js";
 
@@ -32,6 +33,7 @@ const projectCreateSchema = z.object({
 
 const commentCreateSchema = z.object({
   body: z.string().trim().min(1).max(2000),
+  parentCommentId: z.string().nullish(),
 });
 
 const projectUpdateSchema = projectCreateSchema.partial();
@@ -267,12 +269,19 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       throw forbidden("This project is private");
     }
 
+    // Top-level comments paginated; replies ride along (oldest first).
     const rows = await prisma.comment.findMany({
-      where: { projectId: id },
+      where: { projectId: id, parentId: null },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { author: { include: { avatarPhoto: true } } },
+      include: {
+        ...commentInclude(viewerId),
+        replies: {
+          orderBy: { createdAt: "asc" },
+          include: commentInclude(viewerId),
+        },
+      },
     });
     const page = buildPage(rows, limit);
     return {
@@ -299,12 +308,48 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       throw forbidden("Comments are turned off for this project", "comments_disabled");
     }
 
+    // Replying: threads are one level deep — replying to a reply attaches to
+    // the original top-level comment instead.
+    let parentId: string | null = null;
+    if (body.parentCommentId) {
+      const parent = await prisma.comment.findUnique({
+        where: { id: body.parentCommentId },
+        select: { id: true, projectId: true, parentId: true },
+      });
+      if (!parent || parent.projectId !== id) {
+        throw badRequest("Parent comment not found on this project", "invalid_parent_comment");
+      }
+      parentId = parent.parentId ?? parent.id;
+    }
+
     const comment = await prisma.comment.create({
-      data: { projectId: id, authorId: viewerId, body: body.body },
-      include: { author: { include: { avatarPhoto: true } } },
+      data: { projectId: id, authorId: viewerId, body: body.body, parentId },
+      include: commentInclude(viewerId),
     });
     reply.code(201);
     return serializeComment(comment);
+  });
+
+  // POST /:id/comments/:commentId/like — idempotent.
+  app.post("/:id/comments/:commentId/like", { preHandler: app.authenticate }, async (req) => {
+    const viewerId = req.userId!;
+    const { commentId } = await assertVisibleComment(req, viewerId);
+    await prisma.commentLike.upsert({
+      where: { userId_commentId: { userId: viewerId, commentId } },
+      create: { userId: viewerId, commentId },
+      update: {},
+    });
+    const likeCount = await prisma.commentLike.count({ where: { commentId } });
+    return { liked: true, likeCount };
+  });
+
+  // DELETE /:id/comments/:commentId/like — idempotent.
+  app.delete("/:id/comments/:commentId/like", { preHandler: app.authenticate }, async (req) => {
+    const viewerId = req.userId!;
+    const { commentId } = await assertVisibleComment(req, viewerId);
+    await prisma.commentLike.deleteMany({ where: { userId: viewerId, commentId } });
+    const likeCount = await prisma.commentLike.count({ where: { commentId } });
+    return { liked: false, likeCount };
   });
 
   // DELETE /:id/comments/:commentId — comment author or project owner
@@ -344,6 +389,28 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
 };
 
 // --- helpers ---
+
+const commentParams = z.object({ id: z.string().min(1), commentId: z.string().min(1) });
+
+/** Validate the comment exists on the route's project and the viewer can see it. */
+async function assertVisibleComment(
+  req: { params: unknown },
+  viewerId: string,
+): Promise<{ id: string; commentId: string }> {
+  const { id, commentId } = parse(commentParams, req.params);
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: {
+      projectId: true,
+      project: { select: { isPublic: true, ownerId: true } },
+    },
+  });
+  if (!comment || comment.projectId !== id) throw notFound("Comment not found");
+  if (!comment.project.isPublic && comment.project.ownerId !== viewerId) {
+    throw forbidden("This project is private");
+  }
+  return { id, commentId };
+}
 
 async function assertOwnedProject(id: string, viewerId: string): Promise<void> {
   const project = await prisma.project.findUnique({

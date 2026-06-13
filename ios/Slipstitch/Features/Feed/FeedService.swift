@@ -64,9 +64,23 @@ struct FeedService {
         return try await client.send(.GET, "/projects/\(projectId)/comments", query: query)
     }
 
-    func addComment(projectId: String, body: String) async throws -> Comment {
-        struct Body: Encodable { let body: String }
-        return try await client.send(.POST, "/projects/\(projectId)/comments", body: Body(body: body))
+    func addComment(projectId: String, body: String, parentCommentId: String? = nil) async throws -> Comment {
+        struct Body: Encodable {
+            let body: String
+            let parentCommentId: String?
+        }
+        return try await client.send(.POST, "/projects/\(projectId)/comments",
+                                     body: Body(body: body, parentCommentId: parentCommentId))
+    }
+
+    @discardableResult
+    func likeComment(projectId: String, commentId: String) async throws -> LikeResponse {
+        try await client.send(.POST, "/projects/\(projectId)/comments/\(commentId)/like")
+    }
+
+    @discardableResult
+    func unlikeComment(projectId: String, commentId: String) async throws -> LikeResponse {
+        try await client.send(.DELETE, "/projects/\(projectId)/comments/\(commentId)/like")
     }
 
     func deleteComment(projectId: String, commentId: String) async throws {

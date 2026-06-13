@@ -29,6 +29,10 @@ struct User: Codable, Identifiable, Hashable {
     let interests: [String]?
     /// False until the signup survey is completed or skipped.
     let onboardingCompleted: Bool?
+    /// Profile links (Instagram, Ravelry, website…), max 5 URLs.
+    let socialLinks: [String]?
+    /// Whether the Activity tab is shown to other users.
+    let activityVisible: Bool?
     let createdAt: Date?
 }
 
@@ -38,6 +42,8 @@ struct PublicUser: Codable, Identifiable, Hashable {
     let displayName: String
     let bio: String?
     let avatarUrl: String?
+    let socialLinks: [String]?
+    let activityVisible: Bool?
     let projectCount: Int?
     let followerCount: Int?
     let followingCount: Int?
@@ -68,9 +74,38 @@ struct Project: Codable, Identifiable, Hashable {
 struct Comment: Codable, Identifiable, Hashable {
     let id: String
     let projectId: String
+    let parentId: String?
     let author: PublicUser
     let body: String
+    let likeCount: Int
+    let liked: Bool
+    /// Present on top-level comments (one level of threading).
+    let replies: [Comment]?
     let createdAt: Date
+}
+
+/// One event in a user's public activity feed.
+struct ActivityItem: Codable, Identifiable, Hashable {
+    struct ProjectCard: Codable, Hashable {
+        let id: String
+        let title: String
+        let coverUrl: String?
+    }
+    struct UserCard: Codable, Hashable {
+        let id: String
+        let username: String
+        let displayName: String
+        let avatarUrl: String?
+    }
+
+    let type: String // project | progress | comment | like | follow
+    let createdAt: Date
+    let project: ProjectCard?
+    let user: UserCard?
+    let body: String?
+
+    // The API doesn't assign event ids; synthesize a stable one.
+    var id: String { "\(type)-\(createdAt.timeIntervalSince1970)-\(project?.id ?? user?.id ?? "")" }
 }
 
 /// The standard CYC yarn weight categories, offered as picker options.

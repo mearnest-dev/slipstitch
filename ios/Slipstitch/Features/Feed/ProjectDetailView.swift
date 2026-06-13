@@ -8,6 +8,7 @@ struct ProjectDetailView: View {
     @State private var likeCount: Int
     @State private var isLiking = false
     @State private var showSaveSheet = false
+    @State private var showFullCover = false
 
     private let service = FeedService.shared
 
@@ -53,6 +54,11 @@ struct ProjectDetailView: View {
         .frame(height: 320)
         .frame(maxWidth: .infinity)
         .clipped()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if initialProject.coverUrl != nil { showFullCover = true }
+        }
+        .fullScreenPhoto(url: initialProject.coverUrl, isPresented: $showFullCover)
     }
 
     // MARK: Content
@@ -124,31 +130,12 @@ struct ProjectDetailView: View {
         .clipShape(Circle())
     }
 
-    @ViewBuilder
     private var chips: some View {
-        let items = projectChips
-        if !items.isEmpty {
-            FlowChips(items: items)
-        }
+        MaterialsDisclosure(items: MaterialsDisclosure.items(for: initialProject))
     }
 
-    private var projectChips: [(String, Color)] {
-        var result: [(String, Color)] = []
-        if let craft = initialProject.craftType, !craft.isEmpty {
-            result.append((craft, StitchTheme.Color.sky))
-        }
-        if let yarn = initialProject.yarn, !yarn.isEmpty {
-            result.append(("🧶 \(yarn)", StitchTheme.Color.mint))
-        }
-        if let weight = initialProject.yarnWeight, !weight.isEmpty {
-            result.append(("Weight \(weight)", StitchTheme.Color.lavender))
-        }
-        if let hook = initialProject.hookSize, !hook.isEmpty {
-            result.append(("Hook \(hook)", StitchTheme.Color.butter))
-        }
-        return result
-    }
-
+    // Unselected states sit on the adaptive surfaceAlt so they read correctly
+    // in both light and dark mode (fixed pastels washed out on dark).
     private var actions: some View {
         HStack(spacing: StitchTheme.Spacing.md) {
             Button(action: toggleLike) {
@@ -160,7 +147,9 @@ struct ProjectDetailView: View {
                 .foregroundStyle(liked ? .white : StitchTheme.Color.accent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(liked ? StitchTheme.Color.accent : StitchTheme.Color.accentSoft.opacity(0.4))
+                .background(liked
+                    ? AnyShapeStyle(StitchTheme.Color.accent)
+                    : AnyShapeStyle(StitchTheme.Color.surfaceAlt))
                 .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
             }
             .disabled(isLiking)
@@ -171,10 +160,10 @@ struct ProjectDetailView: View {
                     Text("Save")
                 }
                 .font(StitchTheme.Font.headline)
-                .foregroundStyle(StitchTheme.Color.inkOnPastel)
+                .foregroundStyle(StitchTheme.Color.accent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(StitchTheme.Color.lavender.opacity(0.6))
+                .background(StitchTheme.Color.surfaceAlt)
                 .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
             }
         }
@@ -373,62 +362,3 @@ struct SaveToCollectionSheet: View {
     }
 }
 
-// MARK: - Simple wrapping chips layout
-
-private struct FlowChips: View {
-    let items: [(String, Color)]
-
-    var body: some View {
-        // A lightweight wrap using a Layout for iOS 17.
-        WrapLayout(spacing: StitchTheme.Spacing.sm) {
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                StitchTag(text: item.0, color: item.1)
-            }
-        }
-    }
-}
-
-private struct WrapLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var rowWidth: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var totalHeight: CGFloat = 0
-        var totalWidth: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if rowWidth + size.width > maxWidth, rowWidth > 0 {
-                totalHeight += rowHeight + spacing
-                totalWidth = max(totalWidth, rowWidth - spacing)
-                rowWidth = 0
-                rowHeight = 0
-            }
-            rowWidth += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        totalHeight += rowHeight
-        totalWidth = max(totalWidth, rowWidth - spacing)
-        return CGSize(width: min(totalWidth, maxWidth), height: totalHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX, x > bounds.minX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-    }
-}

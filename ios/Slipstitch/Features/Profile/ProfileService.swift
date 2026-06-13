@@ -12,6 +12,7 @@ struct ProfileService {
         let displayName: String?
         let bio: String?
         let avatarPhotoId: String?
+        let socialLinks: [String]?
     }
 
     /// `GET /me` — the signed-in user (includes email).
@@ -27,25 +28,38 @@ struct ProfileService {
     /// `PATCH /me` — update editable profile fields. Pass only what changed.
     func updateProfile(displayName: String? = nil,
                        bio: String? = nil,
-                       avatarPhotoId: String? = nil) async throws -> User {
+                       avatarPhotoId: String? = nil,
+                       socialLinks: [String]? = nil) async throws -> User {
         try await APIClient.shared.send(
             .PATCH, "/me",
-            body: UpdateProfileBody(displayName: displayName, bio: bio, avatarPhotoId: avatarPhotoId)
+            body: UpdateProfileBody(displayName: displayName, bio: bio,
+                                    avatarPhotoId: avatarPhotoId, socialLinks: socialLinks)
         )
     }
 
     /// `PATCH /me` — account-level settings.
     func updateSettings(defaultCommentsEnabled: Bool? = nil,
-                        notificationsEnabled: Bool? = nil) async throws -> User {
+                        notificationsEnabled: Bool? = nil,
+                        activityVisible: Bool? = nil) async throws -> User {
         struct Body: Encodable {
             let defaultCommentsEnabled: Bool?
             let notificationsEnabled: Bool?
+            let activityVisible: Bool?
         }
         return try await APIClient.shared.send(
             .PATCH, "/me",
             body: Body(defaultCommentsEnabled: defaultCommentsEnabled,
-                       notificationsEnabled: notificationsEnabled)
+                       notificationsEnabled: notificationsEnabled,
+                       activityVisible: activityVisible)
         )
+    }
+
+    /// `GET /users/:id/activity` — recent public actions, newest first.
+    /// `before` is the previous page's `nextCursor`, passed back verbatim.
+    func activity(for userId: String, before: String? = nil) async throws -> Page<ActivityItem> {
+        var query: [String: String] = [:]
+        if let before { query["before"] = before }
+        return try await APIClient.shared.send(.GET, "/users/\(userId)/activity", query: query)
     }
 
     /// `POST /me/onboarding` — submit (or skip, with empty arrays) the signup

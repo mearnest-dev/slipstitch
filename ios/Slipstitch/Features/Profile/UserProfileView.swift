@@ -8,6 +8,13 @@ struct UserProfileView: View {
 
     @EnvironmentObject private var session: SessionStore
     @StateObject private var model: UserProfileViewModel
+    @State private var selectedTab: ProfileTab = .makes
+
+    enum ProfileTab: String, CaseIterable, Identifiable {
+        case makes = "Makes"
+        case activity = "Activity"
+        var id: String { rawValue }
+    }
 
     init(userId: String) {
         self.userId = userId
@@ -15,6 +22,11 @@ struct UserProfileView: View {
     }
 
     private var isSelf: Bool { session.currentUser?.id == userId }
+
+    /// The Activity tab only shows when the user shares it (or it's you).
+    private var showsActivity: Bool {
+        isSelf || (model.user?.activityVisible ?? true)
+    }
 
     var body: some View {
         ScrollView {
@@ -25,7 +37,14 @@ struct UserProfileView: View {
                         followButton
                     }
                     statsRow(for: user)
-                    projectsSection
+                    if showsActivity {
+                        tabPicker
+                    }
+                    if selectedTab == .activity && showsActivity {
+                        ActivityListView(userId: userId)
+                    } else {
+                        projectsSection
+                    }
                 } else if let error = model.errorMessage {
                     errorState(error)
                 } else {
@@ -70,8 +89,24 @@ struct UserProfileView: View {
                     .padding(.horizontal, StitchTheme.Spacing.xl)
                     .padding(.top, StitchTheme.Spacing.xs)
             }
+
+            if let links = user.socialLinks, !links.isEmpty {
+                SocialLinksRow(links: links)
+                    .padding(.horizontal, StitchTheme.Spacing.md)
+                    .padding(.top, StitchTheme.Spacing.xs)
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var tabPicker: some View {
+        Picker("Profile section", selection: $selectedTab) {
+            ForEach(ProfileTab.allCases) { tab in
+                Text(tab.rawValue).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, StitchTheme.Spacing.md)
     }
 
     @ViewBuilder

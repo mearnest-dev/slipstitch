@@ -7,6 +7,8 @@ struct ProgressLogDetailView: View {
     /// Project title, shown as context under the date.
     var projectTitle: String? = nil
 
+    @State private var showFullPhoto = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: StitchTheme.Spacing.md) {
@@ -28,6 +30,9 @@ struct ProgressLogDetailView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: StitchTheme.Radius.md, style: .continuous))
+                    .contentShape(Rectangle())
+                    .onTapGesture { showFullPhoto = true }
+                    .fullScreenPhoto(url: photo.url, isPresented: $showFullPhoto)
                 }
 
                 if hasMetrics {

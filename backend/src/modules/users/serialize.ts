@@ -14,6 +14,8 @@ export interface UserDTO {
   notificationsEnabled: boolean;
   interests: string[];
   onboardingCompleted: boolean;
+  socialLinks: string[];
+  activityVisible: boolean;
   createdAt: string;
 }
 
@@ -23,6 +25,8 @@ export interface PublicUserDTO {
   displayName: string;
   bio: string | null;
   avatarUrl: string | null;
+  socialLinks: string[];
+  activityVisible: boolean;
   projectCount: number;
   followerCount: number;
   followingCount: number;
@@ -69,6 +73,8 @@ export function serializeUser(user: User & { avatarPhoto?: Photo | null }): User
     notificationsEnabled: user.notificationsEnabled,
     interests: user.interests,
     onboardingCompleted: user.onboardingCompleted,
+    socialLinks: user.socialLinks,
+    activityVisible: user.activityVisible,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -90,6 +96,8 @@ export function serializePublicUser(
     displayName: user.displayName,
     bio: user.bio,
     avatarUrl: photoUrl(user.avatarPhoto),
+    socialLinks: user.socialLinks,
+    activityVisible: user.activityVisible,
     projectCount: counts.projectCount,
     followerCount: counts.followerCount,
     followingCount: counts.followingCount,

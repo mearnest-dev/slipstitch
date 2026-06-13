@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/db.js";
-import { badRequest, notFound } from "../../lib/errors.js";
+import { badRequest, forbidden, notFound } from "../../lib/errors.js";
+import { publicUrl } from "../../lib/r2.js";
 import { buildPage, paginationQuery } from "../../lib/pagination.js";
 import {
   serializeProject,
@@ -20,6 +21,13 @@ const patchMeSchema = z.object({
   avatarPhotoId: z.string().nullable().optional(),
   defaultCommentsEnabled: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
+  socialLinks: z.array(z.string().trim().url().max(200)).max(5).optional(),
+  activityVisible: z.boolean().optional(),
+});
+
+const activityQuery = z.object({
+  before: z.coerce.date().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(30),
 });
 
 const onboardingSchema = z.object({
@@ -70,6 +78,12 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
     }
     if (body.notificationsEnabled !== undefined) {
       data.notificationsEnabled = body.notificationsEnabled;
+    }
+    if (body.socialLinks !== undefined) {
+      data.socialLinks = body.socialLinks;
+    }
+    if (body.activityVisible !== undefined) {
+      data.activityVisible = body.activityVisible;
     }
 
     const user = await prisma.user.update({
@@ -230,6 +244,107 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
     return {
       items: slice.map((row) => serializeFollowListUser(row.following)),
       nextCursor: hasMore ? slice[slice.length - 1]!.followingId : null,
+    };
+  });
+
+  // GET /users/:id/activity — recent public actions (projects, progress,
+  // comments, likes, follows) merged newest-first. Cursor is `before=<ISO>`.
+  // 403 when the user has activity hidden (unless viewing yourself).
+  app.get("/users/:id/activity", { preHandler: app.optionalAuth }, async (req) => {
+    const { id } = parse(idParam, req.params);
+    const { before, limit } = activityQuery.parse(req.query);
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, activityVisible: true },
+    });
+    if (!user) throw notFound("User not found", "user_not_found");
+    const isSelf = req.userId === id;
+    if (!user.activityVisible && !isSelf) {
+      throw forbidden("This user's activity is private", "activity_hidden");
+    }
+
+    const created = before ? { createdAt: { lt: before } } : {};
+    const publicOnly = isSelf ? {} : { isPublic: true };
+    const projectCard = {
+      select: { id: true, title: true, cover: { select: { r2Key: true } } },
+    } as const;
+
+    const [projects, logs, comments, likes, follows] = await Promise.all([
+      prisma.project.findMany({
+        where: { ownerId: id, ...publicOnly, ...created },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { id: true, title: true, createdAt: true, cover: { select: { r2Key: true } } },
+      }),
+      prisma.progressLog.findMany({
+        where: { project: { ownerId: id, ...publicOnly }, ...created },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { note: true, createdAt: true, project: projectCard },
+      }),
+      prisma.comment.findMany({
+        where: { authorId: id, project: { isPublic: true }, ...created },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { body: true, createdAt: true, project: projectCard },
+      }),
+      prisma.like.findMany({
+        where: { userId: id, project: { isPublic: true }, ...created },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { createdAt: true, project: projectCard },
+      }),
+      prisma.follow.findMany({
+        where: { followerId: id, ...created },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: {
+          createdAt: true,
+          following: {
+            select: { id: true, username: true, displayName: true, avatarPhoto: { select: { r2Key: true } } },
+          },
+        },
+      }),
+    ]);
+
+    type ProjectCard = { id: string; title: string; cover: { r2Key: string } | null };
+    const card = (p: ProjectCard) => ({
+      id: p.id,
+      title: p.title,
+      coverUrl: p.cover ? publicUrl(p.cover.r2Key) : null,
+    });
+
+    const events = [
+      ...projects.map((p) => ({
+        type: "project" as const, createdAt: p.createdAt, project: card(p),
+      })),
+      ...logs.map((l) => ({
+        type: "progress" as const, createdAt: l.createdAt, project: card(l.project), body: l.note,
+      })),
+      ...comments.map((c) => ({
+        type: "comment" as const, createdAt: c.createdAt, project: card(c.project), body: c.body,
+      })),
+      ...likes.map((l) => ({
+        type: "like" as const, createdAt: l.createdAt, project: card(l.project),
+      })),
+      ...follows.map((f) => ({
+        type: "follow" as const,
+        createdAt: f.createdAt,
+        user: {
+          id: f.following.id,
+          username: f.following.username,
+          displayName: f.following.displayName,
+          avatarUrl: f.following.avatarPhoto ? publicUrl(f.following.avatarPhoto.r2Key) : null,
+        },
+      })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const page = events.slice(0, limit);
+    const hasMore = events.length > limit;
+    return {
+      items: page.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
+      nextCursor: hasMore && page.length > 0 ? page[page.length - 1]!.createdAt.toISOString() : null,
     };
   });
 

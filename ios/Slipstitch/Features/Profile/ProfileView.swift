@@ -90,6 +90,12 @@ struct ProfileView: View {
                     .padding(.horizontal, StitchTheme.Spacing.xl)
                     .padding(.top, StitchTheme.Spacing.xs)
             }
+
+            if let links = user.socialLinks, !links.isEmpty {
+                SocialLinksRow(links: links)
+                    .padding(.horizontal, StitchTheme.Spacing.md)
+                    .padding(.top, StitchTheme.Spacing.xs)
+            }
         }
         .frame(maxWidth: .infinity)
     }

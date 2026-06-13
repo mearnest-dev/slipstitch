@@ -9,6 +9,7 @@ struct SettingsView: View {
 
     @State private var defaultCommentsEnabled = true
     @State private var notificationsEnabled = false
+    @State private var activityVisible = true
     @State private var didSeed = false
 
     @State private var isSaving = false
@@ -47,6 +48,19 @@ struct SettingsView: View {
                     }
             } header: {
                 Text("Notifications")
+            }
+
+            Section {
+                Toggle("Show activity on my profile", isOn: $activityVisible)
+                    .tint(StitchTheme.Color.accent)
+                    .onChange(of: activityVisible) { _, newValue in
+                        guard didSeed else { return }
+                        save(activity: newValue)
+                    }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("When off, other people won't see the Activity tab on your profile (your recent comments, likes, and follows).")
             }
 
             Section {
@@ -100,6 +114,7 @@ struct SettingsView: View {
             if !didSeed {
                 defaultCommentsEnabled = session.currentUser?.defaultCommentsEnabled ?? true
                 notificationsEnabled = session.currentUser?.notificationsEnabled ?? false
+                activityVisible = session.currentUser?.activityVisible ?? true
                 // Seed once, on the next runloop, so the initial assignments
                 // above don't fire the onChange save handlers.
                 DispatchQueue.main.async { didSeed = true }
@@ -109,13 +124,14 @@ struct SettingsView: View {
 
     // MARK: Actions
 
-    private func save(defaultComments: Bool? = nil, notifications: Bool? = nil) {
+    private func save(defaultComments: Bool? = nil, notifications: Bool? = nil, activity: Bool? = nil) {
         errorMessage = nil
         Task {
             do {
                 let updated = try await service.updateSettings(
                     defaultCommentsEnabled: defaultComments,
-                    notificationsEnabled: notifications
+                    notificationsEnabled: notifications,
+                    activityVisible: activity
                 )
                 session.updateUser(updated)
             } catch {
@@ -126,6 +142,9 @@ struct SettingsView: View {
                 }
                 if notifications != nil {
                     notificationsEnabled = session.currentUser?.notificationsEnabled ?? false
+                }
+                if activity != nil {
+                    activityVisible = session.currentUser?.activityVisible ?? true
                 }
             }
         }

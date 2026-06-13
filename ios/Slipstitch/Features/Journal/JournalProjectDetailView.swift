@@ -16,6 +16,7 @@ struct JournalProjectDetailView: View {
     @State private var showingEdit = false
     @State private var showingStatusPicker = false
     @State private var showingDeleteConfirm = false
+    @State private var showingFullCover = false
 
     init(projectId: String, onChanged: @escaping () -> Void = {}) {
         self.projectId = projectId
@@ -124,6 +125,11 @@ struct JournalProjectDetailView: View {
         .frame(height: 220)
         .frame(maxWidth: .infinity)
         .clipped()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if project.coverUrl != nil { showingFullCover = true }
+        }
+        .fullScreenPhoto(url: project.coverUrl, isPresented: $showingFullCover)
     }
 
     private func header(_ project: Project) -> some View {
@@ -151,21 +157,9 @@ struct JournalProjectDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            let chips = materialChips(project)
-            if !chips.isEmpty {
-                FlowChips(chips: chips)
-            }
+            MaterialsDisclosure(items: MaterialsDisclosure.items(for: project))
         }
         .padding(.horizontal, StitchTheme.Spacing.md)
-    }
-
-    private func materialChips(_ project: Project) -> [String] {
-        var chips: [String] = []
-        if let craft = project.craftType, !craft.isEmpty { chips.append(craft) }
-        if let yarn = project.yarn, !yarn.isEmpty { chips.append("🧶 \(yarn)") }
-        if let weight = project.yarnWeight, !weight.isEmpty { chips.append("Weight \(weight)") }
-        if let hook = project.hookSize, !hook.isEmpty { chips.append("Hook \(hook)") }
-        return chips
     }
 
     private var addProgressButton: some View {
@@ -299,54 +293,6 @@ private struct YarnStrandShape: Shape {
         }
         path.addLine(to: CGPoint(x: x(at: endY), y: endY))
         return path
-    }
-}
-
-/// Simple wrapping chip layout for material tags.
-private struct FlowChips: View {
-    let chips: [String]
-    var body: some View {
-        // iOS 17 has no native flow layout, so use a simple wrapping approach.
-        WrapHStack(items: chips) { chip in
-            // Fixed pastel, not surfaceAlt: StitchTag ink stays dark in dark
-            // mode, so its background must stay light.
-            StitchTag(text: chip, color: StitchTheme.Color.pastel(for: chip))
-        }
-    }
-}
-
-/// Minimal wrapping HStack for a handful of chips.
-private struct WrapHStack<Item: Hashable, Content: View>: View {
-    let items: [Item]
-    @ViewBuilder let content: (Item) -> Content
-
-    var body: some View {
-        var width = CGFloat.zero
-        var height = CGFloat.zero
-        return GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                ForEach(items, id: \.self) { item in
-                    content(item)
-                        .padding(.trailing, StitchTheme.Spacing.xs)
-                        .padding(.bottom, StitchTheme.Spacing.xs)
-                        .alignmentGuide(.leading) { d in
-                            if abs(width - d.width) > geo.size.width {
-                                width = 0
-                                height -= d.height
-                            }
-                            let result = width
-                            if item == items.last { width = 0 } else { width -= d.width }
-                            return result
-                        }
-                        .alignmentGuide(.top) { _ in
-                            let result = height
-                            if item == items.last { height = 0 }
-                            return result
-                        }
-                }
-            }
-        }
-        .frame(height: 36)
     }
 }
 
